@@ -22,6 +22,8 @@ def setup():
     challenge_type = input()
     print("If you want to use a discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input()
+    print("How many seconds do you want to wait before disabling the challenge rule? (default: 30)")
+    disable_delay = int(input())
 
     cf = Cloudflare(api_token=api_token)
     
@@ -90,6 +92,7 @@ def setup():
             f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
             f.write(f"CHALLENGE_TYPE={challenge_type}\n")
             f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
+            f.write(f"DISABLE_DELAY={disable_delay}\n")
             f.write(f"SETUP=true\n")
         print("Configuration saved successfully!")
     except Exception as e:
@@ -110,6 +113,7 @@ def main():
     cpu_threshold = float(os.getenv("CPU_THRESHOLD", "80"))
     challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
+    disable_delay = int(os.getenv("DISABLE_DELAY", 30))
     
     if not all([zone_id, ruleset_id, rule_id]):
         print("Missing configuration. Please run setup again.")
@@ -149,7 +153,7 @@ def main():
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {domain}...")
                     webhook.execute()
                 
-            elif t > 10 and rule_enabled:
+            elif t > disable_delay and rule_enabled:
                 print("CPU usage returned to normal, disabling challenge rule...")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,

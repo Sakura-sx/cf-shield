@@ -25,6 +25,7 @@ To modify any config, you can edit the .env file.
 - [ ] Adding a way to add multiple domains.
 - [x] Making the challenge type customizable instead of `managed_challenge`.
 - [x] Discord webhook notifications.
+- [x] Adding a configurable delay before disabling the challenge rule.
 
 ## Contributing
 
