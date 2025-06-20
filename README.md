@@ -76,7 +76,7 @@ If you want to use a Telegram bot, please enter the bot token (default: None)
 1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ
 Please enter the chat ID for the telegram bot (default: None)
 1234567890
-How many seconds do you want to wait before disabling the challenge rule? (default: 30)
+How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)
 30
 Setup successful!
   Ruleset ID: abacebd975b04e398fe02ba19614aa8b
@@ -159,9 +159,9 @@ This is the chat ID you want to use. You can find a guide [here](https://core.te
 If you haven't set a bot token, you will not see this prompt.
 
 ### 10. Challenge Rule Disable Delay
-`How many seconds do you want to wait before disabling the challenge rule? (default: 30)`
+`How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)`
 
-This is the delay in seconds you want to use before disabling the challenge rule. This is to avoid the rule to be disabled and enabled fast when the CPU lowers because of the challenge. It should be a number between 0 and infinity. But it is advised to set it to a value between 5 and 1800.
+This is the delay in seconds you want to use before disabling the challenge rule. This is to avoid the rule to be disabled and enabled fast when the CPU lowers because of the challenge. It should be a number between 0 and infinity. But it is advised to set it to a value between 5 and 1800. You can also set it to "auto" and the script will choose the value dynamically.
 
 
 ## Usage
@@ -195,7 +195,8 @@ python3 main.py setup
 - [x] Telegram notifications.
 - [x] Full guide in the README.md.
 - [x] A way to use all domains in the zone.
-- [ ] Slack notifications.
+- [x] Slack notifications.
+- [ ] Set time automatically.
 - [ ] Add ratelimit challenge.
 
 

@@ -4,3 +4,4 @@ python-dotenv
 discord-webhook
 logging
 colorlog
+slack_sdk

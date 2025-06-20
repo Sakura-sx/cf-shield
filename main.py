@@ -11,52 +11,56 @@ try:
     import logging
     import colorlog
     from colorlog import ColoredFormatter
+    from slack_sdk.webhook import WebhookClient
 except ImportError:
     print("installing dependencies...")
     os.system("python3 -m pip install -r requirements.txt")
 
 def setup():
     print("What's the domain(s) you want to use? (e.g. \"example.com,www.example.com\" or \"example.com\" or \"all\")")
-    domains = input().split(",")
+    domains = input().strip().split(",")
     if not domains:
         logging.error("No domains provided, please provide a domain")
         return
     else:
         if domains[0] != "all":
             for domain in domains:
-                if not re.match(r"^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,6}$", domain.strip()):
+                if domain.strip() == "":
+                    logging.error("No domain provided, please provide a domain")
+                    return
+                elif not re.match(r"^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,6}$", domain.strip()):
                     logging.error(f"Invalid domain: {domain}")
                     return
         else:
             domains = ["all"]
     print("What's the email you used to sign up for Cloudflare? (e.g. example@example.com)")
-    email = input()
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email.strip()):
+    email = input().strip()
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
         logging.error(f"Invalid email: {email}")
         return
     print("Please create an API token and copy it here (e.g. aK-MaF3oyTrPDD8YoNBlvqo0ous7BOeSA7te84OR)")
-    api_token = input()
-    if not re.match(r"^[a-zA-Z0-9-]{40}$", api_token.strip()):
+    api_token = input().strip()
+    if not re.match(r"^[a-zA-Z0-9-]{40}$", api_token):
         logging.error(f"Invalid API token: {api_token}")
         return
     print("Please copy the zone ID from the URL of your Cloudflare dashboard (e.g. 1b7c0e3d41f09ceb9cbcde6b0c7bc819)")
-    zone_id = input()
-    if not re.match(r"^[a-zA-Z0-9]{32}$", zone_id.strip()):
+    zone_id = input().strip()
+    if not re.match(r"^[a-zA-Z0-9]{32}$", zone_id):
         logging.error(f"Invalid zone ID: {zone_id}")
         return
     print("Please copy the account ID from the URL of your Cloudflare dashboard (e.g. 6dead821d9eb4c42f8a8dda399651660)")
-    account_id = input()
-    if not re.match(r"^[a-zA-Z0-9]{32}$", account_id.strip()):
+    account_id = input().strip()
+    if not re.match(r"^[a-zA-Z0-9]{32}$", account_id):
         logging.error(f"Invalid account ID: {account_id}")
         return
     elif zone_id == account_id:
         logging.error("Zone ID and account ID are the same, that means you pasted one of them in the wrong place")
         return
     print("Please enter the CPU usage threshold in percentage (default: 80)")
-    cpu_threshold = input()
+    cpu_threshold = input().strip()
     if not cpu_threshold:
         cpu_threshold = 80
-    elif not re.match(r"^[0-9]+$", cpu_threshold.strip()):
+    elif not re.match(r"^[0-9]+$", cpu_threshold):
         logging.error(f"Invalid CPU threshold: {cpu_threshold}")
         return
     elif int(cpu_threshold) > 100:
@@ -68,18 +72,35 @@ def setup():
         logging.error("CPU threshold cannot be less than or equal to 0")
         return
     print("What's the challenge type you want to use? (default: managed_challenge, options: managed_challenge, js_challenge, challenge)")
-    challenge_type = input()
+    challenge_type = input().strip()
     if not challenge_type:
         challenge_type = "managed_challenge"
     elif challenge_type not in ["managed_challenge", "js_challenge", "challenge"]:
         logging.error("Invalid challenge type, please enter a valid challenge type")
         return
+    print("If you want to use a Slack webhook, please enter the webhook URL (default: None)")
+    slack_webhook = input().strip()
+    if not slack_webhook:
+        slack_webhook = None
+    else:
+        if not re.match(r"^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9\/]+$", slack_webhook):
+            logging.error("Invalid Slack webhook URL, please enter a valid Slack webhook URL")
+            return
+        else:
+            logging.info("Sending a test message to the Slack webhook...")
+            try:
+                webhook = WebhookClient(slack_webhook)
+                webhook.send(text="Test message from CF-Shield")
+                logging.info("Test message sent successfully!")
+            except Exception as e:
+                logging.error(f"Error sending test message to Slack webhook: {e}")
+                return
     print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
-    discord_webhook = input()
+    discord_webhook = input().strip()
     if not discord_webhook:
         discord_webhook = None
     else:
-        if not re.match(r"^https://(discord\.com|ptb\.discord\.com|canary\.discord\.com)/api/webhooks/[0-9]+/[a-zA-Z0-9-]+$", discord_webhook.strip()):
+        if not re.match(r"^https:\/\/(discord\.com|ptb\.discord\.com|canary\.discord\.com)\/api\/webhooks\/[0-9]+\/[a-zA-Z0-9-]+$", discord_webhook):
             logging.error("Invalid Discord webhook URL, please enter a valid Discord webhook URL")
             return
         else:
@@ -92,16 +113,16 @@ def setup():
                 logging.error(f"Error sending test message to Discord webhook: {e}")
                 return
     print("If you want to use a Telegram bot, please enter the bot token (default: None)")
-    telegram_bot_token = input()
+    telegram_bot_token = input().strip()
     if not telegram_bot_token:
         telegram_bot_token = None
     else:
-        if not re.match(r"([0-9]{8,10}):[A-za-z0-9]{35}", telegram_bot_token.strip()):
+        if not re.match(r"([0-9]{8,10}):[A-za-z0-9]{35}", telegram_bot_token):
             logging.error("Invalid Telegram bot token, please enter a valid Telegram bot token")
             return
         print("Please enter the chat ID for the telegram bot")
-        telegram_chat_id = input()
-        if not re.match(r"^[0-9]+$", telegram_chat_id.strip()):
+        telegram_chat_id = input().strip()
+        if not re.match(r"^[0-9]+$", telegram_chat_id):
             logging.error("Invalid Telegram chat ID, please enter a valid Telegram chat ID")
             return
         else:
@@ -111,11 +132,11 @@ def setup():
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
-    print("How many seconds do you want to wait before disabling the challenge rule? (default: 30)")
-    disable_delay = input()
+    print("How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)")
+    disable_delay = input().strip()
     if not disable_delay:
-        disable_delay = 30
-    elif not re.match(r"^[0-9]+$", disable_delay.strip()):
+        disable_delay = "auto"
+    elif not re.match(r"^[0-9]+$", disable_delay):
         logging.error("Invalid disable delay, please enter a valid disable delay")
         return
     elif disable_delay < 0:
@@ -199,6 +220,7 @@ def setup():
             f.write(f"DOMAINS={','.join(domains)}\n")
             f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
             f.write(f"CHALLENGE_TYPE={challenge_type}\n")
+            f.write(f"SLACK_WEBHOOK={slack_webhook}\n")
             f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
             f.write(f"TELEGRAM_BOT_TOKEN={telegram_bot_token}\n")
             f.write(f"TELEGRAM_CHAT_ID={telegram_chat_id}\n")
@@ -230,10 +252,11 @@ def main():
     domains = os.getenv("DOMAINS").split(",") if "," in os.getenv("DOMAINS") else [os.getenv("DOMAINS")]
     cpu_threshold = float(os.getenv("CPU_THRESHOLD", "80"))
     challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
+    slack_webhook = os.getenv("SLACK_WEBHOOK", None)
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
-    disable_delay = int(os.getenv("DISABLE_DELAY", 30))
+    disable_delay = os.getenv("DISABLE_DELAY", "auto")
     
     if not all([zone_id, ruleset_id, rule_id]):
         logging.error("Missing configuration. Please run setup again.")
@@ -247,16 +270,22 @@ def main():
     
     rule_enabled = False
     t = 1
+    if disable_delay == "auto":
+        new_disable_delay = 30
+    else:
+        new_disable_delay = disable_delay
     while True:
         time.sleep(1)
         try:
             cpu_usage = psutil.cpu_percent(interval=1)
             logging.info(f"Current CPU usage: {cpu_usage}%")
-
             if cpu_usage > cpu_threshold:
                 t = 0
             else:
                 t += 1
+
+            if t > (new_disable_delay * 2) and disable_delay == "auto":
+                new_disable_delay = 30
             
             if t == 0 and not rule_enabled:
                 logging.info(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
@@ -269,13 +298,21 @@ def main():
                 rule_enabled = True
                 logging.info("Challenge rule enabled!")
 
+                if disable_delay == "auto":
+                    new_disable_delay = new_disable_delay * 1.5
+
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...")
                     webhook.execute()
+
+                if slack_webhook:
+                    webhook = WebhookClient(slack_webhook)
+                    webhook.send(text=f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...")
+
                 if telegram_bot_token:
                     send_telegram_message(f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...", telegram_chat_id, telegram_bot_token)
                 
-            elif t > disable_delay and rule_enabled:
+            elif t > new_disable_delay and rule_enabled:
                 logging.info("CPU usage returned to normal, disabling challenge rule...")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
@@ -285,9 +322,13 @@ def main():
                 )
                 rule_enabled = False
                 logging.info("Challenge rule disabled!")
+
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...")
                     webhook.execute()
+                if slack_webhook:
+                    webhook = WebhookClient(slack_webhook)
+                    webhook.send(text=f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...")
                 if telegram_bot_token:
                     send_telegram_message(f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...", telegram_chat_id, telegram_bot_token)
                 
@@ -313,6 +354,19 @@ def run():
                                                                          
                                                                          
 """)
+    try:
+        load_dotenv()
+        if os.getenv("SETUP") == "true":
+            logging.info("Configuration found, starting monitoring...")
+            main()
+        else:
+            raise Exception("Setup not completed")
+    except Exception:
+        print(f"Welcome to CF-Shield, we will now set it up for you.")
+        setup()
+
+
+if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     
@@ -333,20 +387,7 @@ def run():
     
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-    
-    try:
-        load_dotenv()
-        if os.getenv("SETUP") == "true":
-            logging.info("Configuration found, starting monitoring...")
-            main()
-        else:
-            raise Exception("Setup not completed")
-    except Exception:
-        print(f"Welcome to CF-Shield, we will now set it up for you.")
-        setup()
 
-
-if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "setup":
         setup()
     else:
