@@ -45,6 +45,7 @@ Here is an example of the setup, in diff format for better readability:
 +the parts in green are the prompts that you will see  
 -the parts in red are an example of what a user would enter
 ```
+Please ignore the `+` and `-` signs, they are only for formatting. They are not part of the setup. You should not enter them.
 
 ```diff
   /$$$$$$  /$$$$$$$$       /$$$$$$  /$$       /$$           /$$       /$$
@@ -101,7 +102,7 @@ Here is an example of the setup, in diff format for better readability:
 ```
 
 ### 1. Domains
-`What's the domain(s) you want to use? (e.g. "example.com,www.example.com" or "example.com" or "all")`
+`What's the domain(s) you want to use? (default: all, e.g. "example.com,www.example.com" or "example.com")`
 
 This is the domain(s) you want to use. You can add multiple domains by separating them with a comma. The domains must be on the same [Zone](https://developers.cloudflare.com/fundamentals/concepts/accounts-and-zones/#zones) (meaning a single WAF rule can be applied to all of them).
 

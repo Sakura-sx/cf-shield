@@ -17,11 +17,10 @@ except ImportError:
     os.system("python3 -m pip install -r requirements.txt")
 
 def setup():
-    print("What's the domain(s) you want to use? (e.g. \"example.com,www.example.com\" or \"example.com\" or \"all\")")
+    print("What's the domain(s) you want to use? (default: all, e.g. \"example.com,www.example.com\" or \"example.com\")")
     domains = input().strip().split(",")
     if not domains:
-        logging.error("No domains provided, please provide a domain")
-        return
+        domains = ["all"]
     else:
         if domains[0] != "all":
             for domain in domains:
@@ -371,7 +370,7 @@ def main():
                 logging.info("Challenge rule disabled!")
 
                 if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...")
+                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message)
                     webhook.execute()
                 if slack_webhook:
                     webhook = WebhookClient(slack_webhook)
