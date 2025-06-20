@@ -24,7 +24,7 @@ To modify any config, you can edit the .env file.
 ## Roadmap
 - [ ] Adding a way to add multiple domains.
 - [ ] Making the challenge type customizable instead of `managed_challenge`.
-- [ ] Discord webhook notifications.
+- [x] Discord webhook notifications.
 
 ## Contributing
 

@@ -2,6 +2,8 @@ import psutil
 from cloudflare import Cloudflare
 import os
 from dotenv import load_dotenv
+from discord_webhook import DiscordWebhook
+
 
 def setup():
     print("What's the domain you want to use? (e.g. example.com)")
@@ -14,8 +16,12 @@ def setup():
     zone_id = input()
     print("Please copy the account ID from the URL of your Cloudflare dashboard (e.g. 6dead821d9eb4c42f8a8dda399651660)")
     account_id = input()
-    print("Please enter the CPU usage threshold in percentage (e.g. 80)")
+    print("Please enter the CPU usage threshold in percentage (default: 80)")
     cpu_threshold = input()
+    print("What's the challenge type you want to use? (default: managed_challenge)")
+    challenge_type = input()
+    print("If you want to use a discord webhook, please enter the webhook URL (default: None)")
+    discord_webhook = input()
 
     cf = Cloudflare(api_token=api_token)
     
@@ -55,7 +61,7 @@ def setup():
             new_rule = cf.rulesets.rules.create(
                 ruleset_id=target_ruleset_id,
                 zone_id=zone_id,
-                action="managed_challenge",
+                action=challenge_type,
                 expression=f"(http.host eq \"{domain}\")",
                 description="CF-Shield",
                 enabled=False
@@ -82,6 +88,8 @@ def setup():
             f.write(f"CF_RULE_ID={cf_shield_rule_id}\n")
             f.write(f"DOMAIN={domain}\n")
             f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
+            f.write(f"CHALLENGE_TYPE={challenge_type}\n")
+            f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
             f.write(f"SETUP=true\n")
         print("Configuration saved successfully!")
     except Exception as e:
@@ -100,6 +108,8 @@ def main():
     rule_id = os.getenv("CF_RULE_ID")
     domain = os.getenv("DOMAIN")
     cpu_threshold = float(os.getenv("CPU_THRESHOLD", "80"))
+    challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
+    discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
     
     if not all([zone_id, ruleset_id, rule_id]):
         print("Missing configuration. Please run setup again.")
@@ -128,6 +138,9 @@ def main():
                 )
                 rule_enabled = True
                 print("Challenge rule enabled!")
+                if discord_webhook:
+                    webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {domain}...")
+                    response = webhook.execute()
                 
             elif cpu_usage <= cpu_threshold and rule_enabled:
                 print("CPU usage returned to normal, disabling challenge rule...")
@@ -139,6 +152,9 @@ def main():
                 )
                 rule_enabled = False
                 print("Challenge rule disabled!")
+                if discord_webhook:
+                    webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is back to normal, disabling challenge rule for {domain}...")
+                    response = webhook.execute()
                 
         except KeyboardInterrupt:
             print("\nMonitoring stopped by user")
