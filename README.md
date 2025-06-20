@@ -65,9 +65,13 @@ Setup complete! Starting monitoring...
 ```
 
 ### 1. Domains
-`What's the domain(s) you want to use? (e.g. "example.com,www.example.com" or "example.com")`
+`What's the domain(s) you want to use? (e.g. "example.com,www.example.com" or "example.com" or "all")`
 
 This is the domain(s) you want to use. You can add multiple domains by separating them with a comma. The domains must be on the same [Zone](https://developers.cloudflare.com/fundamentals/concepts/accounts-and-zones/#zones) (meaning a single WAF rule can be applied to all of them).
+
+If you want to use all domains in the zone, you can enter `all`.
+
+If you change this after the inital setup, you will need to remove the rule from the dashboard and run the script again.
 
 ### 2. Email
 `What's the email you used to sign up for Cloudflare? (e.g. example@example.com)`
@@ -108,6 +112,8 @@ This is the challenge type you want to use. You can choose between `managed_chal
 `managed_challenge` is the default challenge type. Cloudflare will choose to use `js_challenge` or `challenge` based on how likely it thinks the request is a bot.
 
 Usually it is best to start with `managed_challenge` and then switch to `challenge` if the bots are still able to bypass the challenge.
+
+If you change this after the inital setup, you will need to remove the rule from the dashboard and run the script again.
 
 ### 8. Discord Webhook (optional)
 `If you want to use a Discord webhook, please enter the webhook URL (default: None)`
@@ -150,6 +156,7 @@ To modify the config, you can edit the .env file.
 - [x] Adding a configurable delay before disabling the challenge rule.
 - [x] Telegram notifications.
 - [x] Full guide in the README.md.
+- [x] A way to use all domains in the zone.
 - [ ] Slack notifications.
 - [ ] Add ratelimit challenge.
 

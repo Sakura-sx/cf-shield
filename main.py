@@ -15,16 +15,19 @@ except ImportError:
     os.system("python3 -m pip install -r requirements.txt")
 
 def setup():
-    print("What's the domain(s) you want to use? (e.g. \"example.com,www.example.com\" or \"example.com\")")
+    print("What's the domain(s) you want to use? (e.g. \"example.com,www.example.com\" or \"example.com\" or \"all\")")
     domains = input().split(",")
     if not domains:
         logging.error("No domains provided, please provide a domain")
         return
     else:
-        for domain in domains:
-            if not re.match(r"^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,6}$", domain.strip()):
-                logging.error(f"Invalid domain: {domain}")
-                return
+        if domains[0] != "all":
+            for domain in domains:
+                if not re.match(r"^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,6}$", domain.strip()):
+                    logging.error(f"Invalid domain: {domain}")
+                    return
+        else:
+            domains = ["all"]
     print("What's the email you used to sign up for Cloudflare? (e.g. example@example.com)")
     email = input()
     if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email.strip()):
@@ -158,9 +161,12 @@ def setup():
         
         if not cf_shield_rule_id:
             expression = "("
-            for domain in domains:
-                expression += f"http.host eq \"{domain}\" or "
-            expression = expression[:-4] + ")"
+            if domains[0] != "all":
+                for domain in domains:
+                    expression += f"http.host eq \"{domain}\" or "
+                expression = expression[:-4] + ")"
+            else:
+                expression = "(http.host ne \"example.invalid\")"
             new_rule = cf.rulesets.rules.create(
                 ruleset_id=target_ruleset_id,
                 zone_id=zone_id,
