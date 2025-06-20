@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 try:
     import requests
     import psutil
@@ -346,4 +347,7 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    if len(sys.argv) > 1 and sys.argv[1] == "setup":
+        setup()
+    else:
+        run()

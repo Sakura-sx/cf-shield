@@ -165,11 +165,27 @@ This is the delay in seconds you want to use before disabling the challenge rule
 
 
 ## Usage
+```bash
+cf-shield
+```
+or if it is not in your PATH, you can use the following command:
+```bash
+python3 -m cf-shield
+```
+
+Or if it doesn't work, you can install it using git. (See [Installation](#installation)) and then run the following command:
 
 ```bash
 python3 main.py
 ```
-To modify the config, you can edit the .env file.
+To modify the config after the inital setup, you can edit the .env file or use the `setup` argument like this (See [Setup](#setup)):
+
+```bash
+python3 main.py setup
+```
+
+
+
 
 ## Roadmap
 - [x] Adding a way to add multiple domains.
