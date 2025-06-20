@@ -10,7 +10,7 @@ try:
     from colorlog import ColoredFormatter
 except ImportError:
     print("installing dependencies...")
-    os.system("pip install -r requirements.txt")
+    os.system("python3 -m pip install -r requirements.txt")
 
 def setup():
     print("What's the domain you want to use? (e.g. example.com)")
