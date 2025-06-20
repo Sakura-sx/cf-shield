@@ -7,8 +7,8 @@ CF-Shield is a Python script for detecting DDoS attacks and enabling security me
 First, you will need to get your Cloudflare email, API token, zone ID, and account ID.
 
 ```bash
-git clone https://github.com/Sakura-sx/CF-Shield.git
-cd CF-Shield
+git clone https://github.com/Sakura-sx/cf-shield.git
+cd cf-shield
 pip install -r requirements.txt
 python main.py
 ```
@@ -26,6 +26,7 @@ To modify any config, you can edit the .env file.
 - [x] Making the challenge type customizable instead of `managed_challenge`.
 - [x] Discord webhook notifications.
 - [x] Adding a configurable delay before disabling the challenge rule.
+- [ ] Add ratelimit challenge.
 
 ## Contributing
 
