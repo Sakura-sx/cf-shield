@@ -56,6 +56,12 @@ Please enter the chat ID for the telegram bot (default: None)
 1234567890
 How many seconds do you want to wait before disabling the challenge rule? (default: 30)
 30
+Setup successful!
+  Ruleset ID: abacebd975b04e398fe02ba19614aa8b
+  Rule ID: e65dd32a32874c0aa3339af385ca95db
+Saving configuration to .env file...
+Configuration saved successfully!
+Setup complete! Starting monitoring...
 ```
 
 ### 1. Domains
