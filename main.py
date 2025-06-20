@@ -56,6 +56,7 @@ def setup():
     elif zone_id == account_id:
         logging.error("Zone ID and account ID are the same, that means you pasted one of them in the wrong place")
         return
+    
     print("Please enter the CPU usage threshold in percentage (default: 80)")
     cpu_threshold = input().strip()
     if not cpu_threshold:
@@ -78,6 +79,7 @@ def setup():
     elif challenge_type not in ["managed_challenge", "js_challenge", "challenge"]:
         logging.error("Invalid challenge type, please enter a valid challenge type")
         return
+    
     print("If you want to use a Slack webhook, please enter the webhook URL (default: None)")
     slack_webhook = input().strip()
     if not slack_webhook:
@@ -95,6 +97,12 @@ def setup():
             except Exception as e:
                 logging.error(f"Error sending test message to Slack webhook: {e}")
                 return
+            else:
+                print("If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                slack_custom_message = input().strip()
+                if not slack_custom_message:
+                    slack_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
+
     print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input().strip()
     if not discord_webhook:
@@ -112,6 +120,11 @@ def setup():
             except Exception as e:
                 logging.error(f"Error sending test message to Discord webhook: {e}")
                 return
+            else:
+                print(f"If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                discord_custom_message = input().strip()
+                if not discord_custom_message:
+                    discord_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
     print("If you want to use a Telegram bot, please enter the bot token (default: None)")
     telegram_bot_token = input().strip()
     if not telegram_bot_token:
@@ -132,6 +145,11 @@ def setup():
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
+            else:
+                print(f"If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                telegram_custom_message = input().strip()
+                if not telegram_custom_message:
+                    telegram_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
     print("How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)")
     disable_delay = input().strip()
     if not disable_delay:
@@ -231,9 +249,12 @@ def setup():
             f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
             f.write(f"CHALLENGE_TYPE={challenge_type}\n")
             f.write(f"SLACK_WEBHOOK={slack_webhook}\n")
+            f.write(f"SLACK_CUSTOM_MESSAGE={slack_custom_message}\n")
             f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
+            f.write(f"DISCORD_CUSTOM_MESSAGE={discord_custom_message}\n")
             f.write(f"TELEGRAM_BOT_TOKEN={telegram_bot_token}\n")
             f.write(f"TELEGRAM_CHAT_ID={telegram_chat_id}\n")
+            f.write(f"TELEGRAM_CUSTOM_MESSAGE={telegram_custom_message}\n")
             f.write(f"DISABLE_DELAY={disable_delay}\n")
             f.write(f"AVERAGED_CPU_MONITORING={averaged_cpu_monitoring}\n")
             f.write(f"SETUP=true\n")
@@ -264,9 +285,12 @@ def main():
     cpu_threshold = int(os.getenv("CPU_THRESHOLD", 80))
     challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
     slack_webhook = os.getenv("SLACK_WEBHOOK", None)
+    slack_custom_message = os.getenv("SLACK_CUSTOM_MESSAGE", None)
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
+    discord_custom_message = os.getenv("DISCORD_CUSTOM_MESSAGE", None)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
+    telegram_custom_message = os.getenv("TELEGRAM_CUSTOM_MESSAGE", None)
     disable_delay = os.getenv("DISABLE_DELAY", "auto")
     averaged_cpu_monitoring = os.getenv("AVERAGED_CPU_MONITORING", True)
     
@@ -325,15 +349,15 @@ def main():
                     new_disable_delay = int(new_disable_delay) * 1.5
 
                 if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...")
+                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message)
                     webhook.execute()
 
                 if slack_webhook:
                     webhook = WebhookClient(slack_webhook)
-                    webhook.send(text=f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...")
+                    webhook.send(text=slack_custom_message)
 
                 if telegram_bot_token:
-                    send_telegram_message(f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...", telegram_chat_id, telegram_bot_token)
+                    send_telegram_message(telegram_custom_message, telegram_chat_id, telegram_bot_token)
                 
             elif t > int(new_disable_delay) and rule_enabled:
                 logging.info("CPU usage returned to normal, disabling challenge rule...")
