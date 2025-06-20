@@ -3,7 +3,7 @@ from cloudflare import Cloudflare
 import os
 from dotenv import load_dotenv
 from discord_webhook import DiscordWebhook
-
+import time
 
 def setup():
     print("What's the domain you want to use? (e.g. example.com)")
@@ -127,8 +127,14 @@ def main():
         try:
             cpu_usage = psutil.cpu_percent(interval=1)
             print(f"Current CPU usage: {cpu_usage}%")
+
+            if cpu_usage > cpu_threshold:
+                t = 0
+            else:
+                t += 1
+                time.sleep(1)
             
-            if cpu_usage > cpu_threshold and not rule_enabled:
+            if t == 0 and not rule_enabled:
                 print(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
@@ -138,11 +144,12 @@ def main():
                 )
                 rule_enabled = True
                 print("Challenge rule enabled!")
+
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {domain}...")
-                    response = webhook.execute()
+                    webhook.execute()
                 
-            elif cpu_usage <= cpu_threshold and rule_enabled:
+            elif t > 10 and rule_enabled:
                 print("CPU usage returned to normal, disabling challenge rule...")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
@@ -154,7 +161,7 @@ def main():
                 print("Challenge rule disabled!")
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is back to normal, disabling challenge rule for {domain}...")
-                    response = webhook.execute()
+                    webhook.execute()
                 
         except KeyboardInterrupt:
             print("\nMonitoring stopped by user")
