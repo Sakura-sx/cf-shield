@@ -196,7 +196,9 @@ python3 main.py setup
 - [x] Full guide in the README.md.
 - [x] A way to use all domains in the zone.
 - [x] Slack notifications.
-- [ ] Set time automatically.
+- [x] Set disable delay automatically.
+- [x] Averaged CPU monitoring option.
+- [ ] Automated CPU spike detection option.
 - [ ] Add ratelimit challenge.
 
 

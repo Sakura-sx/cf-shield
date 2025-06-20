@@ -146,7 +146,17 @@ def setup():
         logging.warning("You have set the disable delay to a very low value, if you know what you are doing, you can ignore this message")
     elif disable_delay > 1800:
         logging.warning("You have set the disable delay to a very high value, if you know what you are doing, you can ignore this message")
-
+    print("Do you want to use averaged CPU monitoring? (default: yes)")
+    averaged_cpu_monitoring = input().strip().lower()
+    if not averaged_cpu_monitoring:
+        averaged_cpu_monitoring = True
+    elif averaged_cpu_monitoring in ["true", "yes", "y"]:
+        averaged_cpu_monitoring = True
+    elif averaged_cpu_monitoring in ["false", "no", "n"]:
+        averaged_cpu_monitoring = False
+    else:
+        logging.error("Invalid averaged CPU monitoring, setting to default (yes)")
+        averaged_cpu_monitoring = True
     cf = Cloudflare(api_token=api_token)
     
     try:
@@ -225,6 +235,7 @@ def setup():
             f.write(f"TELEGRAM_BOT_TOKEN={telegram_bot_token}\n")
             f.write(f"TELEGRAM_CHAT_ID={telegram_chat_id}\n")
             f.write(f"DISABLE_DELAY={disable_delay}\n")
+            f.write(f"AVERAGED_CPU_MONITORING={averaged_cpu_monitoring}\n")
             f.write(f"SETUP=true\n")
         print("Configuration saved successfully!")
     except Exception as e:
@@ -250,13 +261,14 @@ def main():
     ruleset_id = os.getenv("CF_RULESET_ID")
     rule_id = os.getenv("CF_RULE_ID")
     domains = os.getenv("DOMAINS").split(",") if "," in os.getenv("DOMAINS") else [os.getenv("DOMAINS")]
-    cpu_threshold = float(os.getenv("CPU_THRESHOLD", "80"))
+    cpu_threshold = int(os.getenv("CPU_THRESHOLD", 80))
     challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
     slack_webhook = os.getenv("SLACK_WEBHOOK", None)
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
     disable_delay = os.getenv("DISABLE_DELAY", "auto")
+    averaged_cpu_monitoring = os.getenv("AVERAGED_CPU_MONITORING", True)
     
     if not all([zone_id, ruleset_id, rule_id]):
         logging.error("Missing configuration. Please run setup again.")
@@ -274,17 +286,28 @@ def main():
         new_disable_delay = 30
     else:
         new_disable_delay = disable_delay
+    last_10_seconds = []
     while True:
         time.sleep(1)
         try:
-            cpu_usage = psutil.cpu_percent(interval=1)
-            logging.info(f"Current CPU usage: {cpu_usage}%")
-            if cpu_usage > cpu_threshold:
+            if averaged_cpu_monitoring:
+                current_cpu_usage = psutil.cpu_percent()
+                logging.info(f"Current CPU usage: {current_cpu_usage}%")
+                last_10_seconds.append(current_cpu_usage)
+                if len(last_10_seconds) > 10:
+                    last_10_seconds.pop(0)
+                cpu_usage = sum(last_10_seconds) / len(last_10_seconds)
+                logging.info(f"Averaged CPU usage: {cpu_usage}%")
+            else:
+                cpu_usage = psutil.cpu_percent()
+                logging.info(f"Current CPU usage: {cpu_usage}%")
+
+            if cpu_usage > int(cpu_threshold):
                 t = 0
             else:
                 t += 1
 
-            if t > (new_disable_delay * 2) and disable_delay == "auto":
+            if t > (int(new_disable_delay) * 2) and (disable_delay == "auto"):
                 new_disable_delay = 30
             
             if t == 0 and not rule_enabled:
@@ -299,7 +322,7 @@ def main():
                 logging.info("Challenge rule enabled!")
 
                 if disable_delay == "auto":
-                    new_disable_delay = new_disable_delay * 1.5
+                    new_disable_delay = int(new_disable_delay) * 1.5
 
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...")
@@ -312,7 +335,7 @@ def main():
                 if telegram_bot_token:
                     send_telegram_message(f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...", telegram_chat_id, telegram_bot_token)
                 
-            elif t > new_disable_delay and rule_enabled:
+            elif t > int(new_disable_delay) and rule_enabled:
                 logging.info("CPU usage returned to normal, disabling challenge rule...")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
