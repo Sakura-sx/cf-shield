@@ -1,0 +1,165 @@
+import psutil
+from cloudflare import Cloudflare
+import os
+from dotenv import load_dotenv
+
+def setup():
+    print("What's the domain you want to use? (e.g. example.com)")
+    domain = input()
+    print("What's the email you used to sign up for Cloudflare? (e.g. example@example.com)")
+    email = input()
+    print("Please create an API token and copy it here (e.g. 1234567890abcdef)")
+    api_token = input()
+    print("Please copy the zone ID from the URL of your Cloudflare dashboard (e.g. 1b7c0e3d41f09ceb9cbcde6b0c7bc819)")
+    zone_id = input()
+    print("Please copy the account ID from the URL of your Cloudflare dashboard (e.g. 6dead821d9eb4c42f8a8dda399651660)")
+    account_id = input()
+    print("Please enter the CPU usage threshold in percentage (e.g. 80)")
+    cpu_threshold = input()
+
+    cf = Cloudflare(api_token=api_token)
+    
+    try:
+        rulesets_page = cf.rulesets.list(zone_id=zone_id)
+        
+        target_ruleset_id = None
+        for ruleset in rulesets_page.result:
+            if ruleset.phase == "http_request_firewall_custom":
+                target_ruleset_id = ruleset.id
+                break
+        
+        if not target_ruleset_id:
+            print("No http_request_firewall_custom ruleset found.")
+            
+            custom_ruleset = cf.rulesets.create(
+                kind="zone",
+                name="cf-shield-challenge",
+                phase="http_request_firewall_custom",
+                zone_id=zone_id
+            )
+            target_ruleset_id = custom_ruleset.id
+        
+        existing_ruleset = cf.rulesets.get(zone_id=zone_id, ruleset_id=target_ruleset_id)
+        
+        cf_shield_rule_id = None
+        try:
+            for rule in existing_ruleset.rules:
+                if rule.description and "CF-Shield" in rule.description:
+                    cf_shield_rule_id = rule.id
+                    break
+        except Exception as e:
+            print(f"Error checking for existing CF-Shield rule: {e}")
+            cf_shield_rule_id = None
+        
+        if not cf_shield_rule_id:
+            new_rule = cf.rulesets.rules.create(
+                ruleset_id=target_ruleset_id,
+                zone_id=zone_id,
+                action="managed_challenge",
+                expression=f"(http.host eq \"{domain}\")",
+                description="CF-Shield",
+                enabled=False
+            )
+            cf_shield_rule_id = new_rule.id
+
+        print(f"Setup successful!")
+        print(f"  Ruleset ID: {target_ruleset_id}")
+        print(f"  Rule ID: {cf_shield_rule_id}")
+        
+    except Exception as e:
+        print(f"Error working with rulesets: {e}")
+        print("Note: You may need to adjust your API token permissions.")
+        return
+
+    print("Saving configuration to .env file...")
+    try:
+        with open(".env", "w") as f:
+            f.write(f"CF_EMAIL={email}\n")
+            f.write(f"CF_API_TOKEN={api_token}\n")
+            f.write(f"CF_ZONE_ID={zone_id}\n")
+            f.write(f"CF_ACCOUNT_ID={account_id}\n")
+            f.write(f"CF_RULESET_ID={target_ruleset_id}\n")
+            f.write(f"CF_RULE_ID={cf_shield_rule_id}\n")
+            f.write(f"DOMAIN={domain}\n")
+            f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
+            f.write(f"SETUP=true\n")
+        print("Configuration saved successfully!")
+    except Exception as e:
+        print(f"Error saving configuration: {e}")
+        return
+        
+    print("Setup complete! Starting monitoring...")
+    main()
+
+
+def main():
+    cf = Cloudflare(api_token=os.getenv("CF_API_TOKEN"))
+    zone_id = os.getenv("CF_ZONE_ID")
+    account_id = os.getenv("CF_ACCOUNT_ID")
+    ruleset_id = os.getenv("CF_RULESET_ID")
+    rule_id = os.getenv("CF_RULE_ID")
+    domain = os.getenv("DOMAIN")
+    cpu_threshold = float(os.getenv("CPU_THRESHOLD", "80"))
+    
+    if not all([zone_id, ruleset_id, rule_id]):
+        print("Missing configuration. Please run setup again.")
+        print(f"Zone ID: {zone_id}")
+        print(f"Ruleset ID: {ruleset_id}")
+        print(f"Rule ID: {rule_id}")
+        return
+    
+    print(f"Monitoring CPU usage for domain: {domain}")
+    print(f"CPU threshold: {cpu_threshold}%")
+    
+    rule_enabled = False
+    
+    while True:
+        try:
+            cpu_usage = psutil.cpu_percent(interval=1)
+            print(f"Current CPU usage: {cpu_usage}%")
+            
+            if cpu_usage > cpu_threshold and not rule_enabled:
+                print(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
+                cf.rulesets.rules.edit(
+                    rule_id=rule_id,
+                    ruleset_id=ruleset_id,
+                    zone_id=zone_id,
+                    enabled=True
+                )
+                rule_enabled = True
+                print("Challenge rule enabled!")
+                
+            elif cpu_usage <= cpu_threshold and rule_enabled:
+                print("CPU usage returned to normal, disabling challenge rule...")
+                cf.rulesets.rules.edit(
+                    rule_id=rule_id,
+                    ruleset_id=ruleset_id,
+                    zone_id=zone_id,
+                    enabled=False
+                )
+                rule_enabled = False
+                print("Challenge rule disabled!")
+                
+        except KeyboardInterrupt:
+            print("\nMonitoring stopped by user")
+            break
+        except Exception as e:
+            print(f"Error during monitoring: {e}")
+            break
+
+
+def run():
+    try:
+        load_dotenv()
+        if os.getenv("SETUP") == "true":
+            print("Configuration found, starting monitoring...")
+            main()
+        else:
+            raise Exception("Setup not completed")
+    except Exception as e:
+        print(f"Welcome, we will now set this up for you.")
+        setup()
+
+
+if __name__ == "__main__":
+    run()
