@@ -97,10 +97,14 @@ def setup():
                 logging.error(f"Error sending test message to Slack webhook: {e}")
                 return
             else:
-                print("If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print("If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 slack_custom_message = input().strip()
                 if not slack_custom_message:
                     slack_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                slack_custom_message_end = input().strip()
+                if not slack_custom_message_end:
+                    slack_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
 
     print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input().strip()
@@ -120,10 +124,14 @@ def setup():
                 logging.error(f"Error sending test message to Discord webhook: {e}")
                 return
             else:
-                print(f"If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 discord_custom_message = input().strip()
                 if not discord_custom_message:
                     discord_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                discord_custom_message_end = input().strip()
+                if not discord_custom_message_end:
+                    discord_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
     print("If you want to use a Telegram bot, please enter the bot token (default: None)")
     telegram_bot_token = input().strip()
     if not telegram_bot_token:
@@ -145,10 +153,14 @@ def setup():
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
             else:
-                print(f"If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 telegram_custom_message = input().strip()
                 if not telegram_custom_message:
                     telegram_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                telegram_custom_message_end = input().strip()
+                if not telegram_custom_message_end:
+                    telegram_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
     print("How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)")
     disable_delay = input().strip()
     if not disable_delay:
@@ -285,11 +297,14 @@ def main():
     challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
     slack_webhook = os.getenv("SLACK_WEBHOOK", None)
     slack_custom_message = os.getenv("SLACK_CUSTOM_MESSAGE", None)
+    slack_custom_message_end = os.getenv("SLACK_CUSTOM_MESSAGE_END", None)
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
     discord_custom_message = os.getenv("DISCORD_CUSTOM_MESSAGE", None)
+    discord_custom_message_end = os.getenv("DISCORD_CUSTOM_MESSAGE_END", None)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
     telegram_custom_message = os.getenv("TELEGRAM_CUSTOM_MESSAGE", None)
+    telegram_custom_message_end = os.getenv("TELEGRAM_CUSTOM_MESSAGE_END", None)
     disable_delay = os.getenv("DISABLE_DELAY", "auto")
     averaged_cpu_monitoring = os.getenv("AVERAGED_CPU_MONITORING", True)
     
@@ -370,13 +385,13 @@ def main():
                 logging.info("Challenge rule disabled!")
 
                 if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message)
+                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message_end)
                     webhook.execute()
                 if slack_webhook:
                     webhook = WebhookClient(slack_webhook)
-                    webhook.send(text=f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...")
+                    webhook.send(text=slack_custom_message_end)
                 if telegram_bot_token:
-                    send_telegram_message(f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...", telegram_chat_id, telegram_bot_token)
+                    send_telegram_message(telegram_custom_message_end, telegram_chat_id, telegram_bot_token)
                 
         except KeyboardInterrupt:
             logging.info("\nMonitoring stopped by user")
