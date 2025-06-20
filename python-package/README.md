@@ -1,44 +1,27 @@
 # CF-Shield
 
-CF-Shield is a Python script for detecting DDoS attacks and enabling security measures on Cloudflare automatically.
+CF-Shield is a Python package for detecting DDoS attacks and enabling security measures on Cloudflare automatically.
 
 ## Installation
 
-### Way 1: Using pip
+Install CF-Shield using pip:
 
 ```bash
 pip install cf-shield
 ```
 
-Then to run the script, you can use the following command:
+First, you will need to get your Cloudflare email, API token, zone ID, and account ID.
+
+After installation, run:
 
 ```bash
 cf-shield
 ```
-or if it is not in your PATH, you can use the following command:
 
-```bash
-python3 -m cf-shield
-```
-
-If this fails, you can try using git.
-
-
-### Way 2: Using git
-
-First, you will need to get your Cloudflare email, API token, zone ID, and account ID.
-
-```bash
-git clone https://github.com/Sakura-sx/cf-shield.git
-cd cf-shield
-python3 main.py
-```
 When running the script for the first time, it will ask you for your Cloudflare email, API token, zone ID, and account ID. More info on [Setup](#setup).
 
-The dependencies should be installed automatically. If not, you can install them manually by running `python3 -m pip install -r requirements.txt`.
-
 ## Setup
-To setup the script, you will need to run the script and follow the prompts. First run the commands on [Installation](#installation). Here you have a list of what the script will ask you for and what you need to do. The prompts with `default:` are optional and will be set to the default value if you don't enter anything.
+To setup the script, you will need to run the script and follow the prompts. Here you have a list of what the script will ask you for and what you need to do. The prompts with `default:` are optional and will be set to the default value if you don't enter anything.
 
 The full setup looks like this:
 
@@ -166,9 +149,19 @@ This is the delay in seconds you want to use before disabling the challenge rule
 
 ## Usage
 
+After installation, run:
+
 ```bash
-python3 main.py
+cf-shield
 ```
+
+Or if you want to use it as a Python module:
+
+```python
+from cf_shield import run
+run()
+```
+
 To modify the config, you can edit the .env file.
 
 ## Roadmap
@@ -188,6 +181,8 @@ To modify the config, you can edit the .env file.
 Pull requests are welcome. For major changes, please open an issue first
 to discuss what you would like to change.
 
+Please make sure to update tests as appropriate.
+
 ## License
 
-[GPL-3.0](https://choosealicense.com/licenses/gpl-3.0/)
+[GPL-3.0](https://choosealicense.com/licenses/gpl-3.0/) 

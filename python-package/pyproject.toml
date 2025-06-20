@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cf-shield"
+version = "0.1.0"
+authors = [
+    {name = "Sakura-sx", email = "sakura@voxga.xyz"},
+]
+description = "CF-Shield is a Python script for detecting DDoS attacks and enabling security measures on Cloudflare automatically."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "psutil",
+    "cloudflare",
+    "python-dotenv",
+    "discord-webhook",
+    "colorlog",
+    "requests",
+]
+license = "GPL-3.0"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/Sakura-sx/cf-shield"
+Issues = "https://github.com/Sakura-sx/cf-shield/issues"
+Repository = "https://github.com/Sakura-sx/cf-shield"
+
+[project.scripts]
+cf-shield = "cf_shield.main:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src" 
