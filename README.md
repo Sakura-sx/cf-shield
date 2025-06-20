@@ -24,11 +24,14 @@ python3 main.py
 To modify the config, you can edit the .env file.
 
 ## Roadmap
-- [ ] Adding a way to add multiple domains.
+- [x] Adding a way to add multiple domains.
 - [x] Making the challenge type customizable instead of `managed_challenge`.
 - [x] Discord webhook notifications.
 - [x] Adding a configurable delay before disabling the challenge rule.
+- [x] Telegram notifications.
+- [ ] Slack notifications.
 - [ ] Add ratelimit challenge.
+
 
 ## Contributing
 
