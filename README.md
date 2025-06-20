@@ -163,6 +163,17 @@ If you haven't set a bot token, you will not see this prompt.
 
 This is the delay in seconds you want to use before disabling the challenge rule. This is to avoid the rule to be disabled and enabled fast when the CPU lowers because of the challenge. It should be a number between 0 and infinity. But it is advised to set it to a value between 5 and 1800. You can also set it to "auto" and the script will choose the value dynamically.
 
+### 11. Averaged CPU Monitoring
+`Do you want to use averaged CPU monitoring? (default: yes)`
+
+Setting this to "yes" uses the last 10 values of the CPU to calculate the average CPU usage. This is to avoid the script to detect a CPU spike when there is no attack.
+
+On the next setting you can configure the range of the averaged CPU monitoring to be something else than 10.
+
+### 12. Average CPU Monitoring range (optional, only if you set averaged CPU monitoring to "yes")
+`Please enter the range of the averaged CPU monitoring (default: 10)`
+
+This is the range of the averaged CPU monitoring. It should be a number between 2 and 120. It is advised to set it to a value between 5 and 30.
 
 ## Usage
 ```bash
@@ -198,6 +209,8 @@ python3 main.py setup
 - [x] Slack notifications.
 - [x] Set disable delay automatically.
 - [x] Averaged CPU monitoring option.
+- [ ] Send an alert when the challenge rule does not make the CPU usage go down.
+- [ ] Make the alert messages customizable.
 - [ ] Automated CPU spike detection option.
 - [ ] Add ratelimit challenge.
 
