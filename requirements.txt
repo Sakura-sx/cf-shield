@@ -2,3 +2,5 @@ psutil
 cloudflare
 python-dotenv
 discord-webhook
+logging
+colorlog

@@ -9,17 +9,19 @@ First, you will need to get your Cloudflare email, API token, zone ID, and accou
 ```bash
 git clone https://github.com/Sakura-sx/cf-shield.git
 cd cf-shield
-pip install -r requirements.txt
 python main.py
 ```
 When running the script for the first time, it will ask you for your Cloudflare email, API token, zone ID, and account ID.
+
+The dependencies should be installed automatically. If not, you can install them manually by running `pip install -r requirements.txt`.
+
 
 ## Usage
 
 ```bash
 python main.py
 ```
-To modify any config, you can edit the .env file.
+To modify the config, you can edit the .env file.
 
 ## Roadmap
 - [ ] Adding a way to add multiple domains.

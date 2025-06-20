@@ -1,9 +1,16 @@
-import psutil
-from cloudflare import Cloudflare
 import os
-from dotenv import load_dotenv
-from discord_webhook import DiscordWebhook
-import time
+try:
+    import psutil
+    from cloudflare import Cloudflare
+    from dotenv import load_dotenv
+    from discord_webhook import DiscordWebhook
+    import time
+    import logging
+    import colorlog
+    from colorlog import ColoredFormatter
+except ImportError:
+    print("installing dependencies...")
+    os.system("pip install -r requirements.txt")
 
 def setup():
     print("What's the domain you want to use? (e.g. example.com)")
@@ -37,7 +44,7 @@ def setup():
                 break
         
         if not target_ruleset_id:
-            print("No http_request_firewall_custom ruleset found.")
+            logging.info("No http_request_firewall_custom ruleset found.")
             
             custom_ruleset = cf.rulesets.create(
                 kind="zone",
@@ -56,7 +63,7 @@ def setup():
                     cf_shield_rule_id = rule.id
                     break
         except Exception as e:
-            print(f"Error checking for existing CF-Shield rule: {e}")
+            logging.error(f"Error checking for existing CF-Shield rule: {e}")
             cf_shield_rule_id = None
         
         if not cf_shield_rule_id:
@@ -75,8 +82,8 @@ def setup():
         print(f"  Rule ID: {cf_shield_rule_id}")
         
     except Exception as e:
-        print(f"Error working with rulesets: {e}")
-        print("Note: You may need to adjust your API token permissions.")
+        logging.error(f"Error working with rulesets: {e}")
+        logging.error("Note: You may need to adjust your API token permissions.")
         return
 
     print("Saving configuration to .env file...")
@@ -96,7 +103,7 @@ def setup():
             f.write(f"SETUP=true\n")
         print("Configuration saved successfully!")
     except Exception as e:
-        print(f"Error saving configuration: {e}")
+        logging.error(f"Error saving configuration: {e}")
         return
         
     print("Setup complete! Starting monitoring...")
@@ -104,6 +111,7 @@ def setup():
 
 
 def main():
+    
     cf = Cloudflare(api_token=os.getenv("CF_API_TOKEN"))
     zone_id = os.getenv("CF_ZONE_ID")
     account_id = os.getenv("CF_ACCOUNT_ID")
@@ -116,21 +124,21 @@ def main():
     disable_delay = int(os.getenv("DISABLE_DELAY", 30))
     
     if not all([zone_id, ruleset_id, rule_id]):
-        print("Missing configuration. Please run setup again.")
-        print(f"Zone ID: {zone_id}")
-        print(f"Ruleset ID: {ruleset_id}")
-        print(f"Rule ID: {rule_id}")
+        logging.error("Missing configuration. Please run setup again.")
+        logging.error(f"Zone ID: {zone_id}")
+        logging.error(f"Ruleset ID: {ruleset_id}")
+        logging.error(f"Rule ID: {rule_id}")
         return
     
-    print(f"Monitoring CPU usage for domain: {domain}")
-    print(f"CPU threshold: {cpu_threshold}%")
+    logging.info(f"Monitoring CPU usage for domain: {domain}")
+    logging.info(f"CPU threshold: {cpu_threshold}%")
     
     rule_enabled = False
     
     while True:
         try:
             cpu_usage = psutil.cpu_percent(interval=1)
-            print(f"Current CPU usage: {cpu_usage}%")
+            logging.info(f"Current CPU usage: {cpu_usage}%")
 
             if cpu_usage > cpu_threshold:
                 t = 0
@@ -139,7 +147,7 @@ def main():
                 time.sleep(1)
             
             if t == 0 and not rule_enabled:
-                print(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
+                logging.info(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
                     ruleset_id=ruleset_id,
@@ -147,14 +155,14 @@ def main():
                     enabled=True
                 )
                 rule_enabled = True
-                print("Challenge rule enabled!")
+                logging.info("Challenge rule enabled!")
 
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is too high, enabling challenge rule for {domain}...")
                     webhook.execute()
                 
             elif t > disable_delay and rule_enabled:
-                print("CPU usage returned to normal, disabling challenge rule...")
+                logging.info("CPU usage returned to normal, disabling challenge rule...")
                 cf.rulesets.rules.edit(
                     rule_id=rule_id,
                     ruleset_id=ruleset_id,
@@ -162,16 +170,16 @@ def main():
                     enabled=False
                 )
                 rule_enabled = False
-                print("Challenge rule disabled!")
+                logging.info("Challenge rule disabled!")
                 if discord_webhook:
                     webhook = DiscordWebhook(url=discord_webhook, content=f"The CPU usage is back to normal, disabling challenge rule for {domain}...")
                     webhook.execute()
                 
         except KeyboardInterrupt:
-            print("\nMonitoring stopped by user")
+            logging.info("\nMonitoring stopped by user")
             break
         except Exception as e:
-            print(f"Error during monitoring: {e}")
+            logging.error(f"Error during monitoring: {e}")
             break
 
 
@@ -189,16 +197,35 @@ def run():
                                                                          
                                                                          
 """)
-
-
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    formatter = ColoredFormatter(
+        "%(log_color)s%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'red,bg_white',
+        }
+    )
+    
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
     try:
         load_dotenv()
         if os.getenv("SETUP") == "true":
-            print("Configuration found, starting monitoring...")
+            logging.info("Configuration found, starting monitoring...")
             main()
         else:
             raise Exception("Setup not completed")
-    except Exception as e:
+    except Exception:
         print(f"Welcome to CF-Shield, we will now set it up for you.")
         setup()
 
