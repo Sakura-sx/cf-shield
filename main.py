@@ -15,7 +15,7 @@ except ImportError:
     os.system("python3 -m pip install -r requirements.txt")
 
 def setup():
-    print("What's the domain(s) you want to use? (e.g. example.com,example2.com or example.com)")
+    print("What's the domain(s) you want to use? (e.g. \"example.com,www.example.com\" or \"example.com\")")
     domains = input().split(",")
     if not domains:
         logging.error("No domains provided, please provide a domain")
@@ -70,7 +70,7 @@ def setup():
     elif challenge_type not in ["managed_challenge", "js_challenge", "challenge"]:
         logging.error("Invalid challenge type, please enter a valid challenge type")
         return
-    print("If you want to use a discord webhook, please enter the webhook URL (default: None)")
+    print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input()
     if not discord_webhook:
         discord_webhook = None
@@ -87,7 +87,7 @@ def setup():
             except Exception as e:
                 logging.error(f"Error sending test message to Discord webhook: {e}")
                 return
-    print("If you want to use a telegram bot, please enter the bot token (default: None)")
+    print("If you want to use a Telegram bot, please enter the bot token (default: None)")
     telegram_bot_token = input()
     if not telegram_bot_token:
         telegram_bot_token = None
