@@ -112,7 +112,7 @@ def setup_slack_webhook(domains):
     else:
         if not re.match(r"^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9\/]+$", slack_webhook):
             logging.error("Invalid Slack webhook URL, please enter a valid Slack webhook URL")
-            return
+            return "error"
         else:
             logging.info("Sending a test message to the Slack webhook...")
             try:
@@ -121,7 +121,7 @@ def setup_slack_webhook(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Slack webhook: {e}")
-                return
+                return "error"
             else:
                 print("If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 slack_custom_message = input().strip()
@@ -149,7 +149,7 @@ def setup_discord_webhook(domains):
     else:
         if not re.match(r"^https:\/\/(discord\.com|ptb\.discord\.com|canary\.discord\.com)\/api\/webhooks\/[0-9]+\/[a-zA-Z0-9-]+$", discord_webhook):
             logging.error("Invalid Discord webhook URL, please enter a valid Discord webhook URL")
-            return
+            return "error"
         else:
             logging.info("Sending a test message to the Discord webhook...")
             try:
@@ -158,7 +158,7 @@ def setup_discord_webhook(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Discord webhook: {e}")
-                return
+                return "error"
             else:
                 print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 discord_custom_message = input().strip()
@@ -186,12 +186,12 @@ def setup_telegram_bot(domains):
     else:
         if not re.match(r"([0-9]{8,10}):[A-za-z0-9]{35}", telegram_bot_token):
             logging.error("Invalid Telegram bot token, please enter a valid Telegram bot token")
-            return
+            return "error"
         print("Please enter the chat ID for the telegram bot")
         telegram_chat_id = input().strip()
         if not re.match(r"^[0-9]+$", telegram_chat_id):
             logging.error("Invalid Telegram chat ID, please enter a valid Telegram chat ID")
-            return
+            return "error"
         else:
             logging.info("Sending a test message to the Telegram bot...")
             try:
@@ -199,7 +199,7 @@ def setup_telegram_bot(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
-                return
+                return "error"
             else:
                 print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 telegram_custom_message = input().strip()
@@ -229,10 +229,10 @@ def setup_disable_delay():
         return "auto"
     elif not re.match(r"^[0-9]+$", disable_delay):
         logging.error("Invalid disable delay, please enter a valid disable delay")
-        return
+        return None
     elif int(disable_delay) < 0:
         logging.error("Disable delay cannot be less than 0")
-        return
+        return None
     elif int(disable_delay) < 5:
         logging.error("You have set the disable delay to a very low value, if you know what you are doing, you can ignore this message")
     elif int(disable_delay) > 1800:
@@ -265,27 +265,144 @@ def setup_averaged_cpu_monitoring_range():
         averaged_cpu_monitoring_range = 10
     elif int(averaged_cpu_monitoring_range) < 2:
         logging.error("Averaged CPU monitoring range cannot be less than 2")
-        return
+        return None
     elif int(averaged_cpu_monitoring_range) > 120:
         logging.warning("Averaged CPU monitoring range is too high, you can ignore this message if you know what you are doing")
     logging.debug(f"Averaged CPU monitoring range: {averaged_cpu_monitoring_range}")
     return int(averaged_cpu_monitoring_range)
 
 def setup():
-    domains = setup_domains()
-    email = setup_email()
-    api_token = setup_api_token()
-    zone_id = setup_zone_id()
-    account_id = setup_account_id(zone_id)
-    cpu_threshold = setup_cpu_threshold()
-    challenge_type = setup_challenge_type()
-    slack_webhook, slack_custom_message, slack_custom_message_end, slack_custom_message_10_seconds = setup_slack_webhook(domains)
-    discord_webhook, discord_custom_message, discord_custom_message_end, discord_custom_message_10_seconds = setup_discord_webhook(domains)
-    telegram_bot_token, telegram_chat_id, telegram_custom_message, telegram_custom_message_end, telegram_custom_message_10_seconds = setup_telegram_bot(domains)
-    disable_delay = setup_disable_delay()
-    averaged_cpu_monitoring = setup_averaged_cpu_monitoring()
-    averaged_cpu_monitoring_range = setup_averaged_cpu_monitoring_range()
+    while True:
+        try:
+            domains = setup_domains()
+            if domains is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up domains: {e}, please try again")
+            continue
+
+    while True:
+        try:
+            email = setup_email()
+            if email is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up email: {e}, please try again")
+            continue
+
+    while True:
+        try:
+            api_token = setup_api_token()
+            if api_token is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up API token: {e}, please try again")
+            continue
+
+    while True:
+        try:
+            zone_id = setup_zone_id()
+            if zone_id is None:
+                logging.error("Please try again")
+                continue
+        except Exception as e:
+            logging.error(f"Error setting up zone ID: {e}, please try again")
+            continue
+        try:
+            account_id = setup_account_id(zone_id)
+            if account_id is None:
+                logging.error("Please try again, you will be sent back to setting up the zone ID in case you made a mistake")
+                continue
+        except Exception as e:
+            logging.error(f"Error setting up account ID: {e}, please try again")
+            continue
+
+        break
+    while True:
+        try:
+            cpu_threshold = setup_cpu_threshold()
+            if cpu_threshold is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up CPU threshold: {e}, please try again")
+            continue
     
+    while True:
+        try:
+            challenge_type = setup_challenge_type()
+            if challenge_type is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up challenge type: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            slack_webhook, slack_custom_message, slack_custom_message_end, slack_custom_message_10_seconds = setup_slack_webhook(domains)
+            if slack_webhook != "error":
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up Slack webhook: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            discord_webhook, discord_custom_message, discord_custom_message_end, discord_custom_message_10_seconds = setup_discord_webhook(domains)
+            if discord_webhook != "error":
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up Discord webhook: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            telegram_bot_token, telegram_chat_id, telegram_custom_message, telegram_custom_message_end, telegram_custom_message_10_seconds = setup_telegram_bot(domains)
+            if telegram_bot_token != "error":
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up Telegram bot: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            disable_delay = setup_disable_delay()
+            if disable_delay is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up disable delay: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            averaged_cpu_monitoring = setup_averaged_cpu_monitoring()
+            if averaged_cpu_monitoring is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up averaged CPU monitoring: {e}, please try again")
+            continue
+    
+    while True:
+        try:
+            averaged_cpu_monitoring_range = setup_averaged_cpu_monitoring_range()
+            if averaged_cpu_monitoring_range is not None:
+                break
+            logging.error("Please try again")
+        except Exception as e:
+            logging.error(f"Error setting up averaged CPU monitoring range: {e}, please try again")
+            continue
+
+    
+
     cf = Cloudflare(api_token=api_token)
     
     try:
@@ -351,7 +468,7 @@ def setup():
     except Exception as e:
         logging.error(f"Error working with rulesets: {e}")
         logging.error("Note: You may need to adjust your API token permissions.")
-        return
+        return None
 
     print("Saving configuration to .env file...")
     try:
@@ -385,7 +502,7 @@ def setup():
         print("Configuration saved successfully!")
     except Exception as e:
         logging.error(f"Error saving configuration: {e}")
-        return
+        return None
         
     print("Setup complete! Starting monitoring...")
     main()
@@ -430,7 +547,7 @@ def main():
         logging.error(f"Zone ID: {zone_id}")
         logging.error(f"Ruleset ID: {ruleset_id}")
         logging.error(f"Rule ID: {rule_id}")
-        return
+        return None
     
     logging.info(f"Monitoring CPU usage for domains: {', '.join(domains)}")
     logging.info(f"CPU threshold: {cpu_threshold}%")
