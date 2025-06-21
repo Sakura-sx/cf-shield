@@ -160,9 +160,23 @@ This is the Discord webhook URL you want to use. You can find a guide [here](htt
 If you don't want to use a Discord webhook, you can leave it blank.
 
 ### 8.1. Discord Custom Message (optional, only if you set a Discord webhook)
-`If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
+`If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
 
-This is the custom message you want to use.
+This is the custom message you want to use when the CPU usage is too high.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 8.2. Discord Custom Message Attack End (optional, only if you set a Discord webhook)
+`If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for example.com...)`
+
+This is the custom message you want to use when the CPU usage is back to normal.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 8.3. Discord Custom Message 10 Seconds After Attack Started (optional, only if you set a Discord webhook)
+`If you want to use a custom message, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)`
+
+This is the custom message you want to use when the CPU usage is still too high 10 seconds after the attack started.
 
 If you don't want to use a custom message, you can leave it blank.
 
@@ -180,10 +194,24 @@ This is the chat ID you want to use. You can find a guide [here](https://core.te
 
 If you haven't set a bot token, you will not see this prompt.
 
-### 9.2. Telegram Custom Message (optional, only if you set a Telegram bot token)
-`If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
+### 9.2. Telegram Custom Message Attack Start (optional, only if you set a Telegram bot token)
+`If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
 
-This is the custom message you want to use.
+This is the custom message you want to use when the CPU usage is too high.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 9.3. Telegram Custom Message Attack End (optional, only if you set a Telegram bot token)
+`If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for example.com...)`
+
+This is the custom message you want to use when the CPU usage is back to normal.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 9.4. Telegram Custom Message 10 Seconds After Attack Started (optional, only if you set a Telegram bot token)
+`If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)`
+
+This is the custom message you want to use when the CPU usage is still too high 10 seconds after the attack started.
 
 If you don't want to use a custom message, you can leave it blank.
 
@@ -195,9 +223,23 @@ This is the Slack webhook URL you want to use. You can find a guide [here](https
 If you don't want to use a Slack webhook, you can leave it blank.
 
 ### 10.1. Slack Custom Message (optional, only if you set a Slack webhook)
-`If you want to use a custom message, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
+`If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for example.com...)`
 
-This is the custom message you want to use.
+This is the custom message you want to use when the CPU usage is too high.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 10.2. Slack Custom Message Attack End (optional, only if you set a Slack webhook)
+`If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for example.com...)`
+
+This is the custom message you want to use when the CPU usage is back to normal.
+
+If you don't want to use a custom message, you can leave it blank.
+
+### 10.3. Slack Custom Message 10 Seconds After Attack Started (optional, only if you set a Slack webhook)
+`If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)`
+
+This is the custom message you want to use when the CPU usage is still too high 10 seconds after the attack started.
 
 If you don't want to use a custom message, you can leave it blank.
 
@@ -253,7 +295,7 @@ python3 main.py setup
 - [x] Set disable delay automatically.
 - [x] Averaged CPU monitoring option.
 - [x] Customizable alert messages.
-- [ ] Send an alert when the challenge rule does not make the CPU usage go down.
+- [x] Send an alert when the challenge rule does not make the CPU usage go down.
 - [ ] Automated CPU spike detection option.
 - [ ] Add ratelimit challenge.
 

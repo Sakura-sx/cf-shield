@@ -105,6 +105,10 @@ def setup():
                 slack_custom_message_end = input().strip()
                 if not slack_custom_message_end:
                     slack_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
+                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, disabling challenge rule for {', '.join(domains)}...)")
+                slack_custom_message_10_seconds = input().strip()
+                if not slack_custom_message_10_seconds:
+                    slack_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
 
     print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input().strip()
@@ -132,6 +136,10 @@ def setup():
                 discord_custom_message_end = input().strip()
                 if not discord_custom_message_end:
                     discord_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
+                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
+                discord_custom_message_10_seconds = input().strip()
+                if not discord_custom_message_10_seconds:
+                    discord_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
     print("If you want to use a Telegram bot, please enter the bot token (default: None)")
     telegram_bot_token = input().strip()
     if not telegram_bot_token:
@@ -161,6 +169,10 @@ def setup():
                 telegram_custom_message_end = input().strip()
                 if not telegram_custom_message_end:
                     telegram_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
+                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
+                telegram_custom_message_10_seconds = input().strip()
+                if not telegram_custom_message_10_seconds:
+                    telegram_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
     print("How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)")
     disable_delay = input().strip()
     if not disable_delay:
@@ -262,13 +274,16 @@ def setup():
             f.write(f"SLACK_WEBHOOK={slack_webhook}\n")
             f.write(f"SLACK_CUSTOM_MESSAGE={slack_custom_message}\n")
             f.write(f"SLACK_CUSTOM_MESSAGE_END={slack_custom_message_end}\n")
+            f.write(f"SLACK_CUSTOM_MESSAGE_10_SECONDS={slack_custom_message_10_seconds}\n")
             f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
             f.write(f"DISCORD_CUSTOM_MESSAGE={discord_custom_message}\n")
             f.write(f"DISCORD_CUSTOM_MESSAGE_END={discord_custom_message_end}\n")
+            f.write(f"DISCORD_CUSTOM_MESSAGE_10_SECONDS={discord_custom_message_10_seconds}\n")
             f.write(f"TELEGRAM_BOT_TOKEN={telegram_bot_token}\n")
             f.write(f"TELEGRAM_CHAT_ID={telegram_chat_id}\n")
             f.write(f"TELEGRAM_CUSTOM_MESSAGE={telegram_custom_message}\n")
             f.write(f"TELEGRAM_CUSTOM_MESSAGE_END={telegram_custom_message_end}\n")
+            f.write(f"TELEGRAM_CUSTOM_MESSAGE_10_SECONDS={telegram_custom_message_10_seconds}\n")
             f.write(f"DISABLE_DELAY={disable_delay}\n")
             f.write(f"AVERAGED_CPU_MONITORING={averaged_cpu_monitoring}\n")
             f.write(f"SETUP=true\n")
@@ -301,13 +316,16 @@ def main():
     slack_webhook = os.getenv("SLACK_WEBHOOK", None)
     slack_custom_message = os.getenv("SLACK_CUSTOM_MESSAGE", None)
     slack_custom_message_end = os.getenv("SLACK_CUSTOM_MESSAGE_END", None)
+    slack_custom_message_10_seconds = os.getenv("SLACK_CUSTOM_MESSAGE_10_SECONDS", None)
     discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
     discord_custom_message = os.getenv("DISCORD_CUSTOM_MESSAGE", None)
     discord_custom_message_end = os.getenv("DISCORD_CUSTOM_MESSAGE_END", None)
+    discord_custom_message_10_seconds = os.getenv("DISCORD_CUSTOM_MESSAGE_10_SECONDS", None)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
     telegram_custom_message = os.getenv("TELEGRAM_CUSTOM_MESSAGE", None)
     telegram_custom_message_end = os.getenv("TELEGRAM_CUSTOM_MESSAGE_END", None)
+    telegram_custom_message_10_seconds = os.getenv("TELEGRAM_CUSTOM_MESSAGE_10_SECONDS", None)
     disable_delay = os.getenv("DISABLE_DELAY", "auto")
     averaged_cpu_monitoring = os.getenv("AVERAGED_CPU_MONITORING", True)
     
@@ -328,6 +346,7 @@ def main():
     else:
         new_disable_delay = disable_delay
     last_10_seconds = []
+    attack_time = 0
     while True:
         time.sleep(1)
         try:
@@ -351,6 +370,20 @@ def main():
             if t > (int(new_disable_delay) * 2) and (disable_delay == "auto"):
                 new_disable_delay = 30
             
+            if t == 0 and rule_enabled:
+                attack_time += 1
+
+            if attack_time > 10:
+                if discord_webhook:
+                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message_10_seconds)
+                    webhook.execute()
+                if slack_webhook:
+                    webhook = WebhookClient(slack_webhook)
+                    webhook.send(text=slack_custom_message_10_seconds)
+                if telegram_bot_token:
+                    send_telegram_message(telegram_custom_message_10_seconds, telegram_chat_id, telegram_bot_token)
+                attack_time = 0
+
             if t == 0 and not rule_enabled:
                 logging.info(f"CPU usage ({cpu_usage}%) exceeds threshold ({cpu_threshold}%)")
                 cf.rulesets.rules.edit(
