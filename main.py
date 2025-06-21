@@ -515,6 +515,19 @@ def send_telegram_message(message, chat_id, bot_token):
     }
     requests.post(url, json=data)
 
+def notify(message, slack_webhook=None, discord_webhook=None, telegram_bot_token=None, chat_id=None):
+    if slack_webhook:
+        webhook = WebhookClient(slack_webhook)
+        webhook.send(text=message)
+        logging.debug(f"Slack webhook executed (notify)")
+    if discord_webhook:
+        webhook = DiscordWebhook(url=discord_webhook, content=message)
+        webhook.execute()
+        logging.debug(f"Discord webhook executed (notify)")
+    if telegram_bot_token:
+        send_telegram_message(message, chat_id, telegram_bot_token)
+        logging.debug(f"Telegram webhook executed (notify)")
+
 def main():
     
     cf = Cloudflare(api_token=os.getenv("CF_API_TOKEN"))
@@ -591,17 +604,9 @@ def main():
                 logging.debug(f"Attack time: {attack_time}")
 
             if attack_time > 10:
-                if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message_10_seconds)
-                    webhook.execute()
-                    logging.debug(f"Discord webhook executed (10 seconds after attack started)")
-                if slack_webhook:
-                    webhook = WebhookClient(slack_webhook)
-                    webhook.send(text=slack_custom_message_10_seconds)
-                    logging.debug(f"Slack webhook executed (10 seconds after attack started)")
-                if telegram_bot_token:
-                    send_telegram_message(telegram_custom_message_10_seconds, telegram_chat_id, telegram_bot_token)
-                    logging.debug(f"Telegram webhook executed (10 seconds after attack started)")
+                notify(discord_custom_message_10_seconds, discord_webhook)
+                notify(slack_custom_message_10_seconds, slack_webhook)
+                notify(telegram_custom_message_10_seconds, telegram_bot_token, telegram_chat_id)
                 attack_time = 0
                 logging.debug(f"Attack time reset to 0")
 
@@ -621,19 +626,9 @@ def main():
                     new_disable_delay = int(new_disable_delay) * 1.5
                     logging.debug(f"New disable delay: {new_disable_delay}")
 
-                if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message)
-                    webhook.execute()
-                    logging.debug(f"Discord webhook executed (attack started)")
-
-                if slack_webhook:
-                    webhook = WebhookClient(slack_webhook)
-                    webhook.send(text=slack_custom_message)
-                    logging.debug(f"Slack webhook executed (attack started)")
-
-                if telegram_bot_token:
-                    send_telegram_message(telegram_custom_message, telegram_chat_id, telegram_bot_token)
-                    logging.debug(f"Telegram webhook executed (attack started)")
+                notify(discord_custom_message, discord_webhook)
+                notify(slack_custom_message, slack_webhook)
+                notify(telegram_custom_message, telegram_bot_token, telegram_chat_id)
                 
             elif t > int(new_disable_delay) and rule_enabled:
                 logging.info("CPU usage returned to normal, disabling challenge rule...")
@@ -645,18 +640,9 @@ def main():
                 )
                 rule_enabled = False
                 logging.info("Challenge rule disabled!")
-
-                if discord_webhook:
-                    webhook = DiscordWebhook(url=discord_webhook, content=discord_custom_message_end)
-                    webhook.execute()
-                    logging.debug(f"Discord webhook executed (attack ended)")
-                if slack_webhook:
-                    webhook = WebhookClient(slack_webhook)
-                    webhook.send(text=slack_custom_message_end)
-                    logging.debug(f"Slack webhook executed (attack ended)")
-                if telegram_bot_token:
-                    send_telegram_message(telegram_custom_message_end, telegram_chat_id, telegram_bot_token)
-                    logging.debug(f"Telegram webhook executed (attack ended)")
+                notify(discord_custom_message_end, discord_webhook)
+                notify(slack_custom_message_end, slack_webhook)
+                notify(telegram_custom_message_end, telegram_bot_token, telegram_chat_id)
                 
         except KeyboardInterrupt:
             logging.info("\nMonitoring stopped by user")
