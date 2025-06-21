@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cf-shield"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     {name = "Sakura-sx", email = "sakura@voxga.xyz"},
 ]
@@ -12,8 +12,9 @@ description = "CF-Shield is a Python script for detecting DDoS attacks and enabl
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -21,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Internet",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: System :: Monitoring",
     "Topic :: System :: Systems Administration",
@@ -32,6 +34,8 @@ dependencies = [
     "discord-webhook",
     "colorlog",
     "requests",
+    "logging",
+    "slack_sdk"
 ]
 license = "GPL-3.0"
 license-files = ["LICENSE"]

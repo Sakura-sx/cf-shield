@@ -2,6 +2,7 @@ psutil
 cloudflare
 python-dotenv
 discord-webhook
+requests
 logging
 colorlog
 slack_sdk

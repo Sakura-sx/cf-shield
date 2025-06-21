@@ -552,12 +552,18 @@ def run():
         setup()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    if os.getenv("DEBUG") == "true":
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    if os.getenv("DEBUG") == "true":
+        console_handler.setLevel(logging.DEBUG)
+    else:
+        console_handler.setLevel(logging.INFO)
     
     formatter = ColoredFormatter(
         "%(log_color)s%(asctime)s - %(levelname)s - %(message)s",
