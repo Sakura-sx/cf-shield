@@ -16,7 +16,7 @@ except ImportError:
     print("installing dependencies...")
     os.system("python3 -m pip install -r requirements.txt")
 
-def setup():
+def setup_domains():
     print("What's the domain(s) you want to use? (default: all, e.g. \"example.com,www.example.com\" or \"example.com\")")
     domains = input().strip().split(",")
     if not domains:
@@ -32,34 +32,37 @@ def setup():
                     return
         else:
             domains = ["all"]
-
     logging.debug(f"Domains: {domains}")
+    return domains
 
-
+def setup_email():
     print("What's the email you used to sign up for Cloudflare? (e.g. example@example.com)")
     email = input().strip()
     if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
         logging.error(f"Invalid email: {email}")
         return
     logging.debug(f"Email: {email}")
+    return email
 
-
+def setup_api_token():
     print("Please create an API token and copy it here (e.g. aK-MaF3oyTrPDD8YoNBlvqo0ous7BOeSA7te84OR)")
     api_token = input().strip()
     if not re.match(r"^[a-zA-Z0-9-]{40}$", api_token):
         logging.error(f"Invalid API token: {api_token}")
         return
     logging.debug(f"API token: {api_token}")
+    return api_token
 
-
+def setup_zone_id():
     print("Please copy the zone ID from the URL of your Cloudflare dashboard (e.g. 1b7c0e3d41f09ceb9cbcde6b0c7bc819)")
     zone_id = input().strip()
     if not re.match(r"^[a-zA-Z0-9]{32}$", zone_id):
         logging.error(f"Invalid zone ID: {zone_id}")
         return
     logging.debug(f"Zone ID: {zone_id}")
+    return zone_id
 
-    
+def setup_account_id(zone_id):
     print("Please copy the account ID from the URL of your Cloudflare dashboard (e.g. 6dead821d9eb4c42f8a8dda399651660)")
     account_id = input().strip()
     if not re.match(r"^[a-zA-Z0-9]{32}$", account_id):
@@ -69,8 +72,9 @@ def setup():
         logging.error("Zone ID and account ID are the same, that means you pasted one of them in the wrong place")
         return
     logging.debug(f"Account ID: {account_id}")
+    return account_id
 
-
+def setup_cpu_threshold():
     print("Please enter the CPU usage threshold in percentage (default: 80)")
     cpu_threshold = input().strip()
     if not cpu_threshold:
@@ -86,6 +90,10 @@ def setup():
     elif int(cpu_threshold) <= 0:
         logging.error("CPU threshold cannot be less than or equal to 0")
         return
+    logging.debug(f"CPU threshold: {cpu_threshold}")
+    return int(cpu_threshold)
+
+def setup_challenge_type():
     print("What's the challenge type you want to use? (default: managed_challenge, options: managed_challenge, js_challenge, challenge)")
     challenge_type = input().strip()
     if not challenge_type:
@@ -94,12 +102,13 @@ def setup():
         logging.error("Invalid challenge type, please enter a valid challenge type")
         return
     logging.debug(f"Challenge type: {challenge_type}")
+    return challenge_type
 
-    
+def setup_slack_webhook(domains):
     print("If you want to use a Slack webhook, please enter the webhook URL (default: None)")
     slack_webhook = input().strip()
     if not slack_webhook:
-        slack_webhook = None
+        return None, None, None, None
     else:
         if not re.match(r"^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9\/]+$", slack_webhook):
             logging.error("Invalid Slack webhook URL, please enter a valid Slack webhook URL")
@@ -118,27 +127,25 @@ def setup():
                 slack_custom_message = input().strip()
                 if not slack_custom_message:
                     slack_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-
                 print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
                 slack_custom_message_end = input().strip()
                 if not slack_custom_message_end:
                     slack_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
-
                 print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, disabling challenge rule for {', '.join(domains)}...)")
                 slack_custom_message_10_seconds = input().strip()
                 if not slack_custom_message_10_seconds:
                     slack_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                logging.debug(f"Slack webhook: {slack_webhook}")
+                logging.debug(f"Slack custom message: {slack_custom_message}")
+                logging.debug(f"Slack custom message end: {slack_custom_message_end}")
+                logging.debug(f"Slack custom message 10 seconds: {slack_custom_message_10_seconds}")
+                return slack_webhook, slack_custom_message, slack_custom_message_end, slack_custom_message_10_seconds
 
-    logging.debug(f"Slack webhook: {slack_webhook}")
-    logging.debug(f"Slack custom message: {slack_custom_message}")
-    logging.debug(f"Slack custom message end: {slack_custom_message_end}")
-    logging.debug(f"Slack custom message 10 seconds: {slack_custom_message_10_seconds}")
-
-
+def setup_discord_webhook(domains):
     print("If you want to use a Discord webhook, please enter the webhook URL (default: None)")
     discord_webhook = input().strip()
     if not discord_webhook:
-        discord_webhook = None
+        return None, None, None, None
     else:
         if not re.match(r"^https:\/\/(discord\.com|ptb\.discord\.com|canary\.discord\.com)\/api\/webhooks\/[0-9]+\/[a-zA-Z0-9-]+$", discord_webhook):
             logging.error("Invalid Discord webhook URL, please enter a valid Discord webhook URL")
@@ -157,27 +164,25 @@ def setup():
                 discord_custom_message = input().strip()
                 if not discord_custom_message:
                     discord_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-
                 print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
                 discord_custom_message_end = input().strip()
                 if not discord_custom_message_end:
                     discord_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
-
                 print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
                 discord_custom_message_10_seconds = input().strip()
                 if not discord_custom_message_10_seconds:
                     discord_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                logging.debug(f"Discord webhook: {discord_webhook}")
+                logging.debug(f"Discord custom message: {discord_custom_message}")
+                logging.debug(f"Discord custom message end: {discord_custom_message_end}")
+                logging.debug(f"Discord custom message 10 seconds: {discord_custom_message_10_seconds}")
+                return discord_webhook, discord_custom_message, discord_custom_message_end, discord_custom_message_10_seconds
 
-    logging.debug(f"Discord webhook: {discord_webhook}")
-    logging.debug(f"Discord custom message: {discord_custom_message}")
-    logging.debug(f"Discord custom message end: {discord_custom_message_end}")
-    logging.debug(f"Discord custom message 10 seconds: {discord_custom_message_10_seconds}")
-    
-
+def setup_telegram_bot(domains):
     print("If you want to use a Telegram bot, please enter the bot token (default: None)")
     telegram_bot_token = input().strip()
     if not telegram_bot_token:
-        telegram_bot_token = None
+        return None, None, None, None, None
     else:
         if not re.match(r"([0-9]{8,10}):[A-za-z0-9]{35}", telegram_bot_token):
             logging.error("Invalid Telegram bot token, please enter a valid Telegram bot token")
@@ -194,46 +199,48 @@ def setup():
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
+                return
             else:
                 print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
                 telegram_custom_message = input().strip()
                 if not telegram_custom_message:
                     telegram_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-
                 print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
                 telegram_custom_message_end = input().strip()
                 if not telegram_custom_message_end:
                     telegram_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
                 print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
-
                 telegram_custom_message_10_seconds = input().strip()
                 if not telegram_custom_message_10_seconds:
                     telegram_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                logging.debug(f"Telegram bot token: {telegram_bot_token}")
+                logging.debug(f"Telegram chat ID: {telegram_chat_id}")
+                logging.debug(f"Telegram custom message: {telegram_custom_message}")
+                logging.debug(f"Telegram custom message end: {telegram_custom_message_end}")
+                logging.debug(f"Telegram custom message 10 seconds: {telegram_custom_message_10_seconds}")
+                return telegram_bot_token, telegram_chat_id, telegram_custom_message, telegram_custom_message_end, telegram_custom_message_10_seconds
 
-    logging.debug(f"Telegram bot token: {telegram_bot_token}")
-    logging.debug(f"Telegram chat ID: {telegram_chat_id}")
-    logging.debug(f"Telegram custom message: {telegram_custom_message}")
-    logging.debug(f"Telegram custom message end: {telegram_custom_message_end}")
-    logging.debug(f"Telegram custom message 10 seconds: {telegram_custom_message_10_seconds}")
-    
-
+def setup_disable_delay():
     print("How many seconds do you want to wait before disabling the challenge rule? (default: auto eg. 30)")
     disable_delay = input().strip()
     if not disable_delay:
-        disable_delay = "auto"
+        return "auto"
+    elif disable_delay == "auto":
+        return "auto"
     elif not re.match(r"^[0-9]+$", disable_delay):
         logging.error("Invalid disable delay, please enter a valid disable delay")
         return
-    elif disable_delay < 0:
+    elif int(disable_delay) < 0:
         logging.error("Disable delay cannot be less than 0")
         return
-    elif disable_delay < 5:
-        logging.warning("You have set the disable delay to a very low value, if you know what you are doing, you can ignore this message")
-    elif disable_delay > 1800:
-        logging.warning("You have set the disable delay to a very high value, if you know what you are doing, you can ignore this message")
+    elif int(disable_delay) < 5:
+        logging.error("You have set the disable delay to a very low value, if you know what you are doing, you can ignore this message")
+    elif int(disable_delay) > 1800:
+        logging.error("You have set the disable delay to a very high value, if you know what you are doing, you can ignore this message")
     logging.debug(f"Disable delay: {disable_delay}")
+    return int(disable_delay)
 
-    
+def setup_averaged_cpu_monitoring():
     print("Do you want to use averaged CPU monitoring? (default: yes)")
     averaged_cpu_monitoring = input().strip().lower()
     if not averaged_cpu_monitoring:
@@ -246,22 +253,38 @@ def setup():
         logging.error("Invalid averaged CPU monitoring, setting to default (yes)")
         averaged_cpu_monitoring = True
     logging.debug(f"Averaged CPU monitoring: {averaged_cpu_monitoring}")
+    return averaged_cpu_monitoring
 
-
+def setup_averaged_cpu_monitoring_range():
     print("Please enter the range of the averaged CPU monitoring (default: 10)")
     averaged_cpu_monitoring_range = input().strip()
     if not averaged_cpu_monitoring_range:
         averaged_cpu_monitoring_range = 10
     elif not re.match(r"^[0-9]+$", averaged_cpu_monitoring_range):
-        logging.error("Invalid averaged CPU monitoring range, please enter a valid averaged CPU monitoring range")
-        return
+        logging.error("Invalid averaged CPU monitoring range, setting to default (10)")
+        averaged_cpu_monitoring_range = 10
     elif int(averaged_cpu_monitoring_range) < 2:
         logging.error("Averaged CPU monitoring range cannot be less than 2")
         return
     elif int(averaged_cpu_monitoring_range) > 120:
         logging.warning("Averaged CPU monitoring range is too high, you can ignore this message if you know what you are doing")
     logging.debug(f"Averaged CPU monitoring range: {averaged_cpu_monitoring_range}")
+    return int(averaged_cpu_monitoring_range)
 
+def setup():
+    domains = setup_domains()
+    email = setup_email()
+    api_token = setup_api_token()
+    zone_id = setup_zone_id()
+    account_id = setup_account_id(zone_id)
+    cpu_threshold = setup_cpu_threshold()
+    challenge_type = setup_challenge_type()
+    slack_webhook, slack_custom_message, slack_custom_message_end, slack_custom_message_10_seconds = setup_slack_webhook(domains)
+    discord_webhook, discord_custom_message, discord_custom_message_end, discord_custom_message_10_seconds = setup_discord_webhook(domains)
+    telegram_bot_token, telegram_chat_id, telegram_custom_message, telegram_custom_message_end, telegram_custom_message_10_seconds = setup_telegram_bot(domains)
+    disable_delay = setup_disable_delay()
+    averaged_cpu_monitoring = setup_averaged_cpu_monitoring()
+    averaged_cpu_monitoring_range = setup_averaged_cpu_monitoring_range()
     
     cf = Cloudflare(api_token=api_token)
     
