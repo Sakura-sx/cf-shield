@@ -1,20 +1,146 @@
 import os
 import re
 import sys
+import json
 try:
     import requests
     import psutil
     from cloudflare import Cloudflare
-    from dotenv import load_dotenv
     from discord_webhook import DiscordWebhook
     import time
     import logging
     import colorlog
     from colorlog import ColoredFormatter
     from slack_sdk.webhook import WebhookClient
+    from ntfy import Ntfy
 except ImportError:
     print("installing dependencies...")
-    os.system("python3 -m pip install -r requirements.txt")
+    os.system(f"{sys.executable} -m pip install -r requirements.txt")
+
+
+class Config:
+    def __init__(self):
+        self.cloudflare = {
+            'email': None,
+            'api_token': None,
+            'zone_id': None,
+            'account_id': None,
+            'ruleset_id': None,
+            'rule_id': None,
+            'challenge_type': 'managed_challenge'
+        }
+        
+        self.domains = ['all']
+        
+        self.thresholds = {
+            'cpu': 80,
+            'ingoing_bandwidth': 50000000,  # 50Mbps in bps
+            'outgoing_bandwidth': 50000000,  # 50Mbps in bps
+        }
+        
+        self.monitoring = {
+            'averaged_cpu': True,
+            'averaged_cpu_range': 10,
+            'enable_bandwidth_monitoring': False,
+            'disable_delay': 30
+        }
+        
+        self.platforms = {
+            'slack': {
+                'enabled': False,
+                'webhook': None
+            },
+            'discord': {
+                'enabled': False,
+                'webhook': None
+            },
+            'telegram': {
+                'enabled': False,
+                'bot_token': None,
+                'chat_id': None
+            },
+            'ntfy': {
+                'enabled': False,
+                'topic': None
+            }
+        }
+        
+        self.message_templates = {
+            'cpu': {
+                'attack_start': {
+                    'default': "CPU Attack Detected!\nCPU Usage: {cpu_usage:.1f}% (Threshold: {cpu_threshold}%)\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_end': {
+                    'default': "CPU Attack Ended!\nCPU Usage: {cpu_usage:.1f}% (Normal)\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_persist': {
+                    'default': "CPU Attack Persisting!\nCPU Usage: {cpu_usage:.1f}% (Still High)\nDuration: 10+ seconds\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                }
+            },
+            'bandwidth_incoming': {
+                'attack_start': {
+                    'default': "Incoming Bandwidth Attack!\nBandwidth: {incoming_bandwidth_mbps:.1f} Mbps (Limit: {incoming_limit_mbps:.1f} Mbps)\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_end': {
+                    'default': "Incoming Bandwidth Normal!\nBandwidth: {incoming_bandwidth_mbps:.1f} Mbps\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_persist': {
+                    'default': "Incoming Bandwidth Still High!\nBandwidth: {incoming_bandwidth_mbps:.1f} Mbps\nDuration: 10+ seconds\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                }
+            },
+            'bandwidth_outgoing': {
+                'attack_start': {
+                    'default': "Outgoing Bandwidth Attack!\nBandwidth: {outgoing_bandwidth_mbps:.1f} Mbps (Limit: {outgoing_limit_mbps:.1f} Mbps)\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_end': {
+                    'default': "Outgoing Bandwidth Normal!\nBandwidth: {outgoing_bandwidth_mbps:.1f} Mbps\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                },
+                'attack_persist': {
+                    'default': "Outgoing Bandwidth Still High!\nBandwidth: {outgoing_bandwidth_mbps:.1f} Mbps\nDuration: 10+ seconds\nDomains: {', '.join(domains)}\nTime: {timestamp}",
+                    'slack': None,
+                    'discord': None,
+                    'telegram': None,
+                    'ntfy': None
+                }
+            }
+        }
+        self.setup_completed = False
+        self.logging_level = logging.INFO
+        self.config_file = "config.json"
+
+config = Config()
 
 def setup_domains():
     print("What's the domain(s) you want to use? (default: all, e.g. \"example.com,www.example.com\" or \"example.com\")")
@@ -112,7 +238,7 @@ def setup_slack_webhook(domains):
     else:
         if not re.match(r"^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9\/]+$", slack_webhook):
             logging.error("Invalid Slack webhook URL, please enter a valid Slack webhook URL")
-            return "error"
+            return None, None, None, None
         else:
             logging.info("Sending a test message to the Slack webhook...")
             try:
@@ -121,20 +247,20 @@ def setup_slack_webhook(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Slack webhook: {e}")
-                return "error"
+                return None, None, None, None
             else:
-                print("If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print(f"If you want to use a custom message for the attack start, please enter the message (default: {config.message_templates['cpu']['attack_start']['default']})")
                 slack_custom_message = input().strip()
                 if not slack_custom_message:
-                    slack_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                    slack_custom_message = config.message_templates['cpu']['attack_start']['default']
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: {config.message_templates['cpu']['attack_end']['default']})")
                 slack_custom_message_end = input().strip()
                 if not slack_custom_message_end:
-                    slack_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
-                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, disabling challenge rule for {', '.join(domains)}...)")
+                    slack_custom_message_end = config.message_templates['cpu']['attack_end']['default']
+                print(f"If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: {config.message_templates['cpu']['attack_persist']['default']})")
                 slack_custom_message_10_seconds = input().strip()
                 if not slack_custom_message_10_seconds:
-                    slack_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                    slack_custom_message_10_seconds = config.message_templates['cpu']['attack_persist']['default']
                 logging.debug(f"Slack webhook: {slack_webhook}")
                 logging.debug(f"Slack custom message: {slack_custom_message}")
                 logging.debug(f"Slack custom message end: {slack_custom_message_end}")
@@ -149,7 +275,7 @@ def setup_discord_webhook(domains):
     else:
         if not re.match(r"^https:\/\/(discord\.com|ptb\.discord\.com|canary\.discord\.com)\/api\/webhooks\/[0-9]+\/[a-zA-Z0-9-]+$", discord_webhook):
             logging.error("Invalid Discord webhook URL, please enter a valid Discord webhook URL")
-            return "error"
+            return None, None, None, None
         else:
             logging.info("Sending a test message to the Discord webhook...")
             try:
@@ -158,20 +284,20 @@ def setup_discord_webhook(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Discord webhook: {e}")
-                return "error"
+                return None, None, None, None
             else:
-                print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print(f"If you want to use a custom message for the attack start, please enter the message (default: {config.message_templates['cpu']['attack_start']['default']})")
                 discord_custom_message = input().strip()
                 if not discord_custom_message:
-                    discord_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                    discord_custom_message = config.message_templates['cpu']['attack_start']['default']
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: {config.message_templates['cpu']['attack_end']['default']})")
                 discord_custom_message_end = input().strip()
                 if not discord_custom_message_end:
-                    discord_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
-                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
+                    discord_custom_message_end = config.message_templates['cpu']['attack_end']['default']
+                print(f"If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: {config.message_templates['cpu']['attack_persist']['default']})")
                 discord_custom_message_10_seconds = input().strip()
                 if not discord_custom_message_10_seconds:
-                    discord_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                    discord_custom_message_10_seconds = config.message_templates['cpu']['attack_persist']['default']
                 logging.debug(f"Discord webhook: {discord_webhook}")
                 logging.debug(f"Discord custom message: {discord_custom_message}")
                 logging.debug(f"Discord custom message end: {discord_custom_message_end}")
@@ -186,12 +312,12 @@ def setup_telegram_bot(domains):
     else:
         if not re.match(r"([0-9]{8,10}):[A-za-z0-9]{35}", telegram_bot_token):
             logging.error("Invalid Telegram bot token, please enter a valid Telegram bot token")
-            return "error"
+            return None, None, None, None, None
         print("Please enter the chat ID for the telegram bot")
         telegram_chat_id = input().strip()
         if not re.match(r"^[0-9]+$", telegram_chat_id):
             logging.error("Invalid Telegram chat ID, please enter a valid Telegram chat ID")
-            return "error"
+            return None, None, None, None, None
         else:
             logging.info("Sending a test message to the Telegram bot...")
             try:
@@ -199,20 +325,20 @@ def setup_telegram_bot(domains):
                 logging.info("Test message sent successfully!")
             except Exception as e:
                 logging.error(f"Error sending test message to Telegram bot: {e}")
-                return "error"
+                return None, None, None, None, None
             else:
-                print(f"If you want to use a custom message for the attack start, please enter the message (default: The CPU usage is too high, enabling challenge rule for {', '.join(domains)}...)")
+                print(f"If you want to use a custom message for the attack start, please enter the message (default: {config.message_templates['cpu']['attack_start']['default']})")
                 telegram_custom_message = input().strip()
                 if not telegram_custom_message:
-                    telegram_custom_message = f"The CPU usage is too high, enabling challenge rule for {', '.join(domains)}..."
-                print(f"If you want to use a custom message for the attack end, please enter the message (default: The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}...)")
+                    telegram_custom_message = config.message_templates['cpu']['attack_start']['default']
+                print(f"If you want to use a custom message for the attack end, please enter the message (default: {config.message_templates['cpu']['attack_end']['default']})")
                 telegram_custom_message_end = input().strip()
                 if not telegram_custom_message_end:
-                    telegram_custom_message_end = f"The CPU usage is back to normal, disabling challenge rule for {', '.join(domains)}..."
-                print("If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: The CPU usage is still too high, the challenge rule might not be working...)")
+                    telegram_custom_message_end = config.message_templates['cpu']['attack_end']['default']
+                print(f"If you want to use a custom message for when the CPU usage is too high 10 seconds after the attack started, please enter the message (default: {config.message_templates['cpu']['attack_persist']['default']})")
                 telegram_custom_message_10_seconds = input().strip()
                 if not telegram_custom_message_10_seconds:
-                    telegram_custom_message_10_seconds = f"The CPU usage is still too high, the challenge rule might not be working..."
+                    telegram_custom_message_10_seconds = config.message_templates['cpu']['attack_persist']['default']
                 logging.debug(f"Telegram bot token: {telegram_bot_token}")
                 logging.debug(f"Telegram chat ID: {telegram_chat_id}")
                 logging.debug(f"Telegram custom message: {telegram_custom_message}")
@@ -325,7 +451,10 @@ def setup_ingoing_limit(ingoing_limit):
                 logging.error("Invalid ingoing limit, setting to default (50Mbps)")
                 return int(50000000)
 
-        ingoing_limit = int(new_ingoing_limit) * multiplier
+        if new_ingoing_limit:
+            ingoing_limit = int(new_ingoing_limit) * multiplier
+        else:
+            return int(50000000) #50Mbps
     logging.debug(f"Ingoing limit: {ingoing_limit}bps")
     return int(ingoing_limit)
 
@@ -358,15 +487,18 @@ def setup_outgoing_limit(outgoing_limit):
                 logging.error("Invalid outgoing limit, setting to default (50Mbps)")
                 return int(50000000)
 
-        outgoing_limit = int(new_outgoing_limit) * multiplier
+        if new_outgoing_limit:
+            outgoing_limit = int(new_outgoing_limit) * multiplier
+        else:
+            return int(50000000) #50Mbps
     logging.debug(f"Outgoing limit: {outgoing_limit}bps")
     return int(outgoing_limit)
 
 def setup():
     while True:
         try:
-            domains = setup_domains()
-            if domains is not None:
+            config.domains = setup_domains()
+            if config.domains is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -375,8 +507,8 @@ def setup():
 
     while True:
         try:
-            email = setup_email()
-            if email is not None:
+            config.cloudflare['email'] = setup_email()
+            if config.cloudflare['email'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -385,8 +517,8 @@ def setup():
 
     while True:
         try:
-            api_token = setup_api_token()
-            if api_token is not None:
+            config.cloudflare['api_token'] = setup_api_token()
+            if config.cloudflare['api_token'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -395,16 +527,16 @@ def setup():
 
     while True:
         try:
-            zone_id = setup_zone_id()
-            if zone_id is None:
+            config.cloudflare['zone_id'] = setup_zone_id()
+            if config.cloudflare['zone_id'] is None:
                 logging.error("Please try again")
                 continue
         except Exception as e:
             logging.error(f"Error setting up zone ID: {e}, please try again")
             continue
         try:
-            account_id = setup_account_id(zone_id)
-            if account_id is None:
+            config.cloudflare['account_id'] = setup_account_id(config.cloudflare['zone_id'])
+            if config.cloudflare['account_id'] is None:
                 logging.error("Please try again, you will be sent back to setting up the zone ID in case you made a mistake")
                 continue
         except Exception as e:
@@ -414,8 +546,8 @@ def setup():
         break
     while True:
         try:
-            cpu_threshold = setup_cpu_threshold()
-            if cpu_threshold is not None:
+            config.thresholds['cpu'] = setup_cpu_threshold()
+            if config.thresholds['cpu'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -424,8 +556,8 @@ def setup():
     
     while True:
         try:
-            challenge_type = setup_challenge_type()
-            if challenge_type is not None:
+            config.cloudflare['challenge_type'] = setup_challenge_type()
+            if config.cloudflare['challenge_type'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -434,8 +566,8 @@ def setup():
     
     while True:
         try:
-            slack_webhook, slack_custom_message, slack_custom_message_end, slack_custom_message_10_seconds = setup_slack_webhook(domains)
-            if slack_webhook != "error":
+            config.platforms['slack']['webhook'], config.message_templates['cpu']['attack_start']['slack'], config.message_templates['cpu']['attack_end']['slack'], config.message_templates['cpu']['attack_persist']['slack'] = setup_slack_webhook(config.domains)
+            if config.platforms['slack']['webhook'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -444,8 +576,8 @@ def setup():
     
     while True:
         try:
-            discord_webhook, discord_custom_message, discord_custom_message_end, discord_custom_message_10_seconds = setup_discord_webhook(domains)
-            if discord_webhook != "error":
+            config.platforms['discord']['webhook'], config.message_templates['cpu']['attack_start']['discord'], config.message_templates['cpu']['attack_end']['discord'], config.message_templates['cpu']['attack_persist']['discord'] = setup_discord_webhook(config.domains)
+            if config.platforms['discord']['webhook'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -454,8 +586,8 @@ def setup():
     
     while True:
         try:
-            telegram_bot_token, telegram_chat_id, telegram_custom_message, telegram_custom_message_end, telegram_custom_message_10_seconds = setup_telegram_bot(domains)
-            if telegram_bot_token != "error":
+            config.platforms['telegram']['bot_token'], config.platforms['telegram']['chat_id'], config.message_templates['cpu']['attack_start']['telegram'], config.message_templates['cpu']['attack_end']['telegram'], config.message_templates['cpu']['attack_persist']['telegram'] = setup_telegram_bot(config.domains)
+            if config.platforms['telegram']['bot_token'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -464,8 +596,8 @@ def setup():
     
     while True:
         try:
-            disable_delay = setup_disable_delay()
-            if disable_delay is not None:
+            config.monitoring['disable_delay'] = setup_disable_delay()
+            if config.monitoring['disable_delay'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -474,8 +606,8 @@ def setup():
     
     while True:
         try:
-            averaged_cpu_monitoring = setup_averaged_cpu_monitoring()
-            if averaged_cpu_monitoring is not None:
+            config.monitoring['averaged_cpu'] = setup_averaged_cpu_monitoring()
+            if config.monitoring['averaged_cpu'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -484,8 +616,8 @@ def setup():
     
     while True:
         try:
-            averaged_cpu_monitoring_range = setup_averaged_cpu_monitoring_range()
-            if averaged_cpu_monitoring_range is not None:
+            config.monitoring['averaged_cpu_range'] = setup_averaged_cpu_monitoring_range()
+            if config.monitoring['averaged_cpu_range'] is not None:
                 break
             logging.error("Please try again")
         except Exception as e:
@@ -494,9 +626,9 @@ def setup():
 
     while True:
         try:
-            enable_bandwidth_monitoring, ingoing_limit, outgoing_limit = setup_enable_bandwidth_monitoring()
-            if enable_bandwidth_monitoring:
-                if ingoing_limit is None or outgoing_limit is None:
+            config.monitoring['enable_bandwidth_monitoring'], config.monitoring['ingoing_limit'], config.monitoring['outgoing_limit'] = setup_enable_bandwidth_monitoring()
+            if config.monitoring['enable_bandwidth_monitoring']:
+                if config.monitoring['ingoing_limit'] is None or config.monitoring['outgoing_limit'] is None:
                     logging.error("Please try again")
                     continue
                 else:
@@ -507,10 +639,10 @@ def setup():
             logging.error(f"Error setting up bandwidth monitoring: {e}, please try again")
             continue
 
-    cf = Cloudflare(api_token=api_token)
+    cf = Cloudflare(api_token=config.cloudflare['api_token'])
     
     try:
-        rulesets_page = cf.rulesets.list(zone_id=zone_id)
+        rulesets_page = cf.rulesets.list(zone_id=config.cloudflare['zone_id'])
         logging.debug(f"Rulesets: {rulesets_page}")
         
         target_ruleset_id = None
@@ -527,12 +659,12 @@ def setup():
                 kind="zone",
                 name="cf-shield-challenge",
                 phase="http_request_firewall_custom",
-                zone_id=zone_id
+                zone_id=config.cloudflare['zone_id']
             )
             target_ruleset_id = custom_ruleset.id
         logging.debug(f"Target ruleset ID: {target_ruleset_id}")
         
-        existing_ruleset = cf.rulesets.get(zone_id=zone_id, ruleset_id=target_ruleset_id)
+        existing_ruleset = cf.rulesets.get(zone_id=config.cloudflare['zone_id'], ruleset_id=target_ruleset_id)
         logging.debug(f"Existing ruleset: {existing_ruleset}")
         
         cf_shield_rule_id = None
@@ -548,16 +680,16 @@ def setup():
         
         if not cf_shield_rule_id:
             expression = "("
-            if domains[0] != "all":
-                for domain in domains:
+            if config.domains[0] != "all":
+                for domain in config.domains:
                     expression += f"http.host eq \"{domain}\" or "
                 expression = expression[:-4] + ")"
             else:
                 expression = "(http.host ne \"example.invalid\")"
             new_rule = cf.rulesets.rules.create(
                 ruleset_id=target_ruleset_id,
-                zone_id=zone_id,
-                action=challenge_type,
+                zone_id=config.cloudflare['zone_id'],
+                action=config.cloudflare['challenge_type'],
                 expression=expression,
                 description="CF-Shield",
                 enabled=False
@@ -566,63 +698,42 @@ def setup():
         logging.debug(f"CF-Shield rule ID: {cf_shield_rule_id}")
 
         print(f"Setup successful!")
-        print(f"  Ruleset ID: {target_ruleset_id}")
-        print(f"  Rule ID: {cf_shield_rule_id}")
+        print(f"  Ruleset ID: {config.cloudflare['ruleset_id']}")
+        print(f"  Rule ID: {config.cloudflare['rule_id']}")
         
     except Exception as e:
         logging.error(f"Error working with rulesets: {e}")
         logging.error("Note: You may need to adjust your API token permissions.")
         return None
+    
+    config.cloudflare['ruleset_id'] = target_ruleset_id
+    config.cloudflare['rule_id'] = cf_shield_rule_id
+    config.setup_completed = True
 
-    print("Saving configuration to .env file...")
+    print("Saving configuration to config.json file...")
     try:
-        with open(".env", "w") as f:
-            f.write(f"CF_EMAIL={email}\n")
-            f.write(f"CF_API_TOKEN={api_token}\n")
-            f.write(f"CF_ZONE_ID={zone_id}\n")
-            f.write(f"CF_ACCOUNT_ID={account_id}\n")
-            f.write(f"CF_RULESET_ID={target_ruleset_id}\n")
-            f.write(f"CF_RULE_ID={cf_shield_rule_id}\n")
-            f.write(f"DOMAINS={','.join(domains)}\n")
-            f.write(f"CPU_THRESHOLD={cpu_threshold}\n")
-            f.write(f"CHALLENGE_TYPE={challenge_type}\n")
-            f.write(f"SLACK_WEBHOOK={slack_webhook}\n")
-            f.write(f"SLACK_CUSTOM_MESSAGE={slack_custom_message}\n")
-            f.write(f"SLACK_CUSTOM_MESSAGE_END={slack_custom_message_end}\n")
-            f.write(f"SLACK_CUSTOM_MESSAGE_10_SECONDS={slack_custom_message_10_seconds}\n")
-            f.write(f"DISCORD_WEBHOOK={discord_webhook}\n")
-            f.write(f"DISCORD_CUSTOM_MESSAGE={discord_custom_message}\n")
-            f.write(f"DISCORD_CUSTOM_MESSAGE_END={discord_custom_message_end}\n")
-            f.write(f"DISCORD_CUSTOM_MESSAGE_10_SECONDS={discord_custom_message_10_seconds}\n")
-            f.write(f"TELEGRAM_BOT_TOKEN={telegram_bot_token}\n")
-            f.write(f"TELEGRAM_CHAT_ID={telegram_chat_id}\n")
-            f.write(f"TELEGRAM_CUSTOM_MESSAGE={telegram_custom_message}\n")
-            f.write(f"TELEGRAM_CUSTOM_MESSAGE_END={telegram_custom_message_end}\n")
-            f.write(f"TELEGRAM_CUSTOM_MESSAGE_10_SECONDS={telegram_custom_message_10_seconds}\n")
-            f.write(f"DISABLE_DELAY={disable_delay}\n")
-            f.write(f"AVERAGED_CPU_MONITORING={averaged_cpu_monitoring}\n")
-            f.write(f"AVERAGED_CPU_MONITORING_RANGE={averaged_cpu_monitoring_range}\n")
-            f.write(f"TRAFFIC_MONITORING={enable_bandwidth_monitoring}\n")
-            f.write(f"INGOING_LIMIT={ingoing_limit}\n")
-            f.write(f"OUTGOING_LIMIT={outgoing_limit}\n")
-            f.write(f"SETUP=true\n")
+        with open(config.config_file, "w") as f:
+            json.dump(config.__dict__, f, indent=2)
         print("Configuration saved successfully!")
     except Exception as e:
         logging.error(f"Error saving configuration: {e}")
         return None
-        
+    
     print("Setup complete! Starting monitoring...")
     main()
 
-def send_telegram_message(message, chat_id, bot_token):
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    data = {
-        "chat_id": chat_id,
-        "text": message
-    }
-    requests.post(url, json=data)
+def send_telegram_message(message, telegram_chat_id, telegram_bot_token):
+    try:
+        url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
+        data = {
+            "chat_id": telegram_chat_id,
+            "text": message
+        }
+        requests.post(url, json=data)
+    except Exception as e:
+        logging.error(f"Failed to send Telegram message: {e}")
 
-def notify(message, slack_webhook=None, discord_webhook=None, telegram_bot_token=None, chat_id=None):
+def notify(message, slack_webhook=None, discord_webhook=None, telegram_bot_token=None, telegram_chat_id=None):
     if slack_webhook:
         webhook = WebhookClient(slack_webhook)
         webhook.send(text=message)
@@ -632,7 +743,7 @@ def notify(message, slack_webhook=None, discord_webhook=None, telegram_bot_token
         webhook.execute()
         logging.debug(f"Discord webhook executed (notify)")
     if telegram_bot_token:
-        send_telegram_message(message, chat_id, telegram_bot_token)
+        send_telegram_message(message, telegram_chat_id, telegram_bot_token)
         logging.debug(f"Telegram webhook executed (notify)")
 
 def get_cpu_usage(averaged_cpu_monitoring, last_readings, averaged_cpu_monitoring_range):
@@ -749,49 +860,22 @@ def update_timer_and_delay(attack_detected, timer, disable_delay, new_disable_de
     return new_timer, new_disable_delay
 
 def main():
-    
-    cf = Cloudflare(api_token=os.getenv("CF_API_TOKEN"))
-    zone_id = os.getenv("CF_ZONE_ID")
-    account_id = os.getenv("CF_ACCOUNT_ID")
-    ruleset_id = os.getenv("CF_RULESET_ID")
-    rule_id = os.getenv("CF_RULE_ID")
-    domains = os.getenv("DOMAINS").split(",") if "," in os.getenv("DOMAINS") else [os.getenv("DOMAINS")]
-    cpu_threshold = int(os.getenv("CPU_THRESHOLD", 80))
-    challenge_type = os.getenv("CHALLENGE_TYPE", "managed_challenge")
-    slack_webhook = os.getenv("SLACK_WEBHOOK", None)
-    slack_custom_message = os.getenv("SLACK_CUSTOM_MESSAGE", None)
-    slack_custom_message_end = os.getenv("SLACK_CUSTOM_MESSAGE_END", None)
-    slack_custom_message_10_seconds = os.getenv("SLACK_CUSTOM_MESSAGE_10_SECONDS", None)
-    discord_webhook = os.getenv("DISCORD_WEBHOOK", None)
-    discord_custom_message = os.getenv("DISCORD_CUSTOM_MESSAGE", None)
-    discord_custom_message_end = os.getenv("DISCORD_CUSTOM_MESSAGE_END", None)
-    discord_custom_message_10_seconds = os.getenv("DISCORD_CUSTOM_MESSAGE_10_SECONDS", None)
-    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", None)
-    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", None)
-    telegram_custom_message = os.getenv("TELEGRAM_CUSTOM_MESSAGE", None)
-    telegram_custom_message_end = os.getenv("TELEGRAM_CUSTOM_MESSAGE_END", None)
-    telegram_custom_message_10_seconds = os.getenv("TELEGRAM_CUSTOM_MESSAGE_10_SECONDS", None)
-    disable_delay = os.getenv("DISABLE_DELAY", "auto")
-    averaged_cpu_monitoring = os.getenv("AVERAGED_CPU_MONITORING", True)
-    averaged_cpu_monitoring_range = os.getenv("AVERAGED_CPU_MONITORING_RANGE", 10)
-    enable_bandwidth_monitoring = os.getenv("TRAFFIC_MONITORING", False)
-    ingoing_limit = int(os.getenv("INGOING_LIMIT", 50000000)) #50Mbps
-    outgoing_limit = int(os.getenv("OUTGOING_LIMIT", 50000000)) #50Mbps
-    
-    if not all([zone_id, ruleset_id, rule_id]):
+    cf = Cloudflare(api_token=config.cloudflare['api_token'])
+
+    if not all([config.cloudflare['zone_id'], config.cloudflare['ruleset_id'], config.cloudflare['rule_id']]):
         logging.error("Missing configuration. Please run setup again.")
-        logging.error(f"Zone ID: {zone_id}")
-        logging.error(f"Ruleset ID: {ruleset_id}")
-        logging.error(f"Rule ID: {rule_id}")
+        logging.error(f"Zone ID: {config.cloudflare['zone_id']}")
+        logging.error(f"Ruleset ID: {config.cloudflare['ruleset_id']}")
+        logging.error(f"Rule ID: {config.cloudflare['rule_id']}")
         return None
     
-    logging.info(f"Monitoring CPU usage for domains: {', '.join(domains)}")
-    logging.info(f"CPU threshold: {cpu_threshold}%")
+    logging.info(f"Monitoring CPU usage for domains: {', '.join(config.domains)}")
+    logging.info(f"CPU threshold: {config.thresholds['cpu']}%")
     
     # Initialize monitoring variables
     rule_enabled = False
     timer = 1
-    new_disable_delay = 30 if disable_delay == "auto" else disable_delay
+    new_disable_delay = 30 if config.monitoring['disable_delay'] == "auto" else config.monitoring['disable_delay']
     last_cpu_readings = []
     attack_time = 0
     
@@ -799,23 +883,23 @@ def main():
         time.sleep(1)
         try:
             # Get CPU usage (averaged or direct)
-            cpu_usage = get_cpu_usage(averaged_cpu_monitoring, last_cpu_readings, averaged_cpu_monitoring_range)
+            cpu_usage = get_cpu_usage(config.monitoring['averaged_cpu'], last_cpu_readings, config.monitoring['averaged_cpu_range'])
             
             # Get bandwidth usage if monitoring is enabled
             current_ingoing_traffic = None
             current_outgoing_traffic = None
-            if enable_bandwidth_monitoring:
+            if hasattr(config.monitoring, 'enable_bandwidth_monitoring') and config.monitoring['enable_bandwidth_monitoring']:
                 current_ingoing_traffic, current_outgoing_traffic = get_bandwidth_usage()
             
             # Check all thresholds
             attack_detected = check_thresholds(
-                cpu_usage, cpu_threshold,
-                current_ingoing_traffic, ingoing_limit if enable_bandwidth_monitoring else None,
-                current_outgoing_traffic, outgoing_limit if enable_bandwidth_monitoring else None
+                cpu_usage, config.thresholds['cpu'],
+                current_ingoing_traffic, config.monitoring.get('ingoing_limit') if hasattr(config.monitoring, 'enable_bandwidth_monitoring') and config.monitoring['enable_bandwidth_monitoring'] else None,
+                current_outgoing_traffic, config.monitoring.get('outgoing_limit') if hasattr(config.monitoring, 'enable_bandwidth_monitoring') and config.monitoring['enable_bandwidth_monitoring'] else None
             )
             
             # Update timer and disable delay
-            timer, new_disable_delay = update_timer_and_delay(attack_detected, timer, disable_delay, new_disable_delay)
+            timer, new_disable_delay = update_timer_and_delay(attack_detected, timer, config.monitoring['disable_delay'], new_disable_delay)
             
             # Track attack time for 10-second notification
             if attack_detected and rule_enabled:
@@ -823,19 +907,22 @@ def main():
                 logging.debug(f"Attack time: {attack_time}")
                 
                 if attack_time > 10:
-                    notify(discord_custom_message_10_seconds, discord_webhook)
-                    notify(slack_custom_message_10_seconds, slack_webhook)
-                    notify(telegram_custom_message_10_seconds, telegram_bot_token, telegram_chat_id)
+                    notify(config.message_templates['cpu']['attack_persist']['discord'], config.platforms['discord']['webhook'])
+                    notify(config.message_templates['cpu']['attack_persist']['slack'], config.platforms['slack']['webhook'])
+                    notify(config.message_templates['cpu']['attack_persist']['telegram'], config.platforms['telegram']['bot_token'], config.platforms['telegram']['chat_id'])
                     attack_time = 0
                     logging.debug(f"Attack time reset to 0")
+            else:
+                attack_time = 0
             
             # Manage Cloudflare rule
             rule_enabled = manage_cloudflare_rule(
                 cf, rule_enabled, attack_detected, timer, new_disable_delay,
-                rule_id, ruleset_id, zone_id, cpu_usage, cpu_threshold,
-                discord_custom_message, discord_webhook, slack_custom_message, slack_webhook,
-                telegram_custom_message, telegram_bot_token, telegram_chat_id,
-                discord_custom_message_end, slack_custom_message_end, telegram_custom_message_end
+                config.cloudflare['rule_id'], config.cloudflare['ruleset_id'], config.cloudflare['zone_id'], cpu_usage, config.thresholds['cpu'],
+                config.message_templates['cpu']['attack_start']['discord'], config.platforms['discord']['webhook'], config.message_templates['cpu']['attack_start']['slack'], config.platforms['slack']['webhook'],
+                config.message_templates['cpu']['attack_start']['telegram'], config.platforms['telegram']['bot_token'], config.platforms['telegram']['chat_id'],
+                config.message_templates['cpu']['attack_end']['discord'], config.platforms['discord']['webhook'], config.message_templates['cpu']['attack_end']['slack'], config.platforms['slack']['webhook'],
+                config.message_templates['cpu']['attack_end']['telegram'], config.platforms['telegram']['bot_token'], config.platforms['telegram']['chat_id']
             )
                 
         except KeyboardInterrupt:
@@ -861,8 +948,13 @@ def run():
                                                                          
 """)
     try:
-        load_dotenv()
-        if os.getenv("SETUP") == "true":
+        with open(config.config_file, "r") as f:
+            loaded_config = json.load(f)
+        
+        if loaded_config.get('setup_completed'):
+            for key, value in loaded_config.items():
+                if hasattr(config, key):
+                    setattr(config, key, value)
             logging.info("Configuration found, starting monitoring...")
             main()
         else:
@@ -874,13 +966,13 @@ def run():
 
 if __name__ == "__main__":    
     logger = logging.getLogger()
-    if os.getenv("DEBUG") == "true":
+    if config.logging_level == "DEBUG":
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
     
     console_handler = logging.StreamHandler()
-    if os.getenv("DEBUG") == "true":
+    if config.logging_level == "DEBUG":
         console_handler.setLevel(logging.DEBUG)
     else:
         console_handler.setLevel(logging.INFO)

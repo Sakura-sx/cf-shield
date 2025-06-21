@@ -6,3 +6,4 @@ requests
 logging
 colorlog
 slack_sdk
+ntfy

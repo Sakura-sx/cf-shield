@@ -298,6 +298,7 @@ python3 main.py setup
 - [x] Send an alert when the challenge rule does not make the CPU usage go down.
 - [x] Trigger based on network traffic.
 - [ ] Placeholders on the custom alert messages.
+- [ ] Add ntfy.sh notifications.
 - [ ] Automated CPU spike detection option.
 - [ ] Add ratelimit challenge.
 
